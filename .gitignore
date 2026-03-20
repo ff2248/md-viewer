@@ -1,0 +1,43 @@
+# Xcode
+DerivedData/
+build/
+xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcshareddata/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.moved-aside
+*.xcscmblueprint
+*.xccheckout
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Tool configuration (not for public repo)
+.serena/
+.claude/
+
+# Internal documents (research, analysis — not for public)
+docs/internal/
+
+# IDE
+.idea/
+.vscode/
+
+# Temporary files
+*.swp
+*~
