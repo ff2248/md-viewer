@@ -71,14 +71,19 @@ struct MarkdownWebView: NSViewRepresentable {
         let bundle: Bundle
         let onHeadingsLoaded: ([Heading]) -> Void
 
-        /// JS library contents, read once from bundle
+        /// JS library contents, read once from bundle.
+        /// Prepends module/exports/define neutralization because WKWebView has
+        /// these globals defined, causing UMD libraries to use CommonJS exports.
         private lazy var jsLibraries: String = {
+            var js = "var module=undefined,exports=undefined,define=undefined;\n"
             let files = ["highlight.min", "katex.min", "katex-auto-render.min"]
-            return files.compactMap { name -> String? in
-                guard let url = bundle.url(forResource: name, withExtension: "js"),
-                      let content = try? String(contentsOf: url, encoding: .utf8) else { return nil }
-                return content
-            }.joined(separator: "\n")
+            for name in files {
+                if let url = bundle.url(forResource: name, withExtension: "js"),
+                   let content = try? String(contentsOf: url, encoding: .utf8) {
+                    js += content + "\n"
+                }
+            }
+            return js
         }()
 
         init(bundle: Bundle, onHeadingsLoaded: @escaping ([Heading]) -> Void) {

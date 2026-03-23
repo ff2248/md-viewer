@@ -47,12 +47,13 @@ enum MarkdownRenderer {
         // Parse Markdown to HTML in Swift (cmark-gfm)
         var renderedHTML = MarkdownParser.toHTML(markdown, unsafe: true)
 
-        // Pre-render math via JavaScriptCore (no browser JS needed for KaTeX)
+        // Pre-render in Swift via JavaScriptCore (no browser JS needed at all)
+        renderedHTML = HighlightRenderer.highlight(in: renderedHTML, bundle: bundle)
         renderedHTML = KaTeXRenderer.renderMath(in: renderedHTML, bundle: bundle)
 
         var html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
 
-        // Inline CSS (katex.min.css provides styling for pre-rendered math)
+        // Inline CSS only — no JavaScript needed in Quick Look
         for name in cssFiles {
             html += "<style>" + readBundleResource(name, "css", bundle: bundle) + "</style>"
         }
@@ -65,13 +66,6 @@ enum MarkdownRenderer {
         html += "<article class='markdown-body'>"
         html += renderedHTML
         html += "</article>"
-
-        // Only highlight.js needed — math is already pre-rendered, no KaTeX JS
-        html += "<script>"
-        html += "var module=undefined,exports=undefined,define=undefined;"
-        html += readBundleResource("highlight.min", "js", bundle: bundle)
-        html += "\ndocument.querySelectorAll('pre code').forEach(function(b){hljs.highlightElement(b);});"
-        html += "</script>"
 
         // Conditionally include Mermaid only when diagrams are present
         let hasMermaid = markdown.contains("```mermaid")
