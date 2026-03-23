@@ -34,15 +34,18 @@ enum MarkdownRenderer {
         """
     }
 
-    /// Builds a self-contained HTML page with all JS/CSS inlined.
+    /// Builds a self-contained HTML page with pre-rendered Markdown and inlined JS/CSS.
     ///
     /// Used by the Quick Look extension where external file loading is unavailable.
-    /// Mermaid is excluded to keep the payload small (~800 KB vs ~3.5 MB).
+    /// Markdown is parsed to HTML by cmark-gfm in Swift — no JS parsing needed.
+    /// Only highlight.js is inlined for syntax highlighting post-processing.
+    /// Mermaid is excluded to keep the payload small.
     ///
     /// Note: Uses string concatenation (not interpolation) because JS files
     /// contain `\(` which would break Swift string interpolation.
     static func buildSelfContainedHTML(markdown: String, bundle: Bundle) -> String {
-        let base64 = Data(markdown.utf8).base64EncodedString()
+        // Parse Markdown to HTML in Swift (cmark-gfm)
+        let renderedHTML = MarkdownParser.toHTML(markdown, unsafe: true)
 
         var html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
 
@@ -51,35 +54,46 @@ enum MarkdownRenderer {
             html += "<style>" + readBundleResource(name, "css", bundle: bundle) + "</style>"
         }
         html += "<style>"
-        html += "body{box-sizing:border-box;min-width:200px;max-width:980px;margin:0 auto;padding:45px;background:#fff;}"
+        html += "body{box-sizing:border-box;margin:0;padding:16px 40px 40px 40px;background:#fff;}"
         html += ".markdown-body{font-size:16px;}"
         html += ".task-list-item{list-style-type:none;}"
         html += ".task-list-item input[type=checkbox]{margin:0 .2em .25em -1.6em;}"
         html += "</style></head><body>"
-        html += "<article class='markdown-body' id='content'></article>"
+        html += "<article class='markdown-body'>"
 
-        // Inline JS (mermaid excluded — too large for Quick Look)
-        for name in jsFilesWithoutMermaid {
+        // Pre-rendered HTML from cmark-gfm (no JS parsing needed)
+        html += renderedHTML
+
+        html += "</article>"
+
+        // Inline JS — only highlight.js for syntax highlighting post-processing
+        for name in postProcessingJS {
             html += "<script>" + readBundleResource(name, "js", bundle: bundle) + "</script>"
         }
 
-        // Rendering script: decode Base64 → UTF-8 → markdown-it → HTML
+        // Post-processing: syntax highlighting + math
         html += "<script>"
-        html += "try{"
-        html += "var bin=atob('" + base64 + "');"
-        html += "var bytes=new Uint8Array(bin.length);"
-        html += "for(var i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);"
-        html += "var text=new TextDecoder('utf-8').decode(bytes);"
-        html += "var md=markdownit({html:true,linkify:true,highlight:function(str,lang){"
-        html += "if(lang&&hljs.getLanguage(lang)){try{return hljs.highlight(str,{language:lang}).value}catch(e){}}"
-        html += "return ''}});"
-        html += "md.use(markdownitEmoji);"
-        html += "md.use(markdownitTaskLists,{enabled:true,label:true});"
-        html += "md.use(markdownitFrontMatter,function(){});"
-        html += "md.use(texmath,{engine:katex,delimiters:'dollars'});"
-        html += "document.getElementById('content').innerHTML=md.render(text);"
-        html += "}catch(e){document.getElementById('content').innerHTML='<pre>'+e.message+'</pre>';}"
-        html += "</script></body></html>"
+        html += "document.querySelectorAll('pre code').forEach(function(b){hljs.highlightElement(b);});"
+        html += "if(typeof renderMathInElement!=='undefined'){"
+        html += "renderMathInElement(document.querySelector('.markdown-body'),{"
+        html += "delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],"
+        html += "throwOnError:false});}"
+        html += "</script>"
+
+        // Conditionally include Mermaid only when diagrams are present
+        let hasMermaid = markdown.contains("```mermaid")
+        if hasMermaid {
+            html += "<script>" + readBundleResource("mermaid.min", "js", bundle: bundle) + "</script>"
+            html += "<script>"
+            html += "document.querySelectorAll('pre code.language-mermaid').forEach(function(cb){"
+            html += "var pre=cb.parentElement;var div=document.createElement('div');"
+            html += "div.className='mermaid';div.textContent=cb.textContent;"
+            html += "pre.parentElement.replaceChild(div,pre);});"
+            html += "mermaid.initialize({startOnLoad:false,theme:'default'});mermaid.run();"
+            html += "</script>"
+        }
+
+        html += "</body></html>"
 
         return html
     }
@@ -88,14 +102,7 @@ enum MarkdownRenderer {
 
     private static let cssFiles = ["github-markdown", "github.min", "katex.min"]
 
-    private static let jsFilesWithoutMermaid = [
-        "markdown-it.min", "markdown-it-emoji.min", "markdown-it-task-lists.min",
-        "markdown-it-front-matter.min", "katex.min", "markdown-it-texmath.min",
-        "highlight.min",
-        "hljs-typescript.min", "hljs-swift.min", "hljs-kotlin.min",
-        "hljs-rust.min", "hljs-go.min", "hljs-ruby.min",
-        "hljs-yaml.min", "hljs-dockerfile.min", "hljs-diff.min"
-    ]
+    private static let postProcessingJS = ["highlight.min", "katex.min", "katex-auto-render.min"]
 
     private static func readBundleResource(_ name: String, _ ext: String, bundle: Bundle) -> String {
         guard let url = bundle.url(forResource: name, withExtension: ext),

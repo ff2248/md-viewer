@@ -10,6 +10,11 @@ settings:
   base:
     SWIFT_VERSION: "5.9"
 
+packages:
+  swift-cmark-gfm:
+    url: https://github.com/stackotter/swift-cmark-gfm
+    from: 1.0.0
+
 targets:
   MDViewer:
     type: application
@@ -54,6 +59,8 @@ targets:
                 - mkd
     dependencies:
       - target: MDViewerQuickLook
+      - package: swift-cmark-gfm
+        product: CMarkGFM
 
   MDViewerQuickLook:
     type: app-extension
@@ -75,6 +82,9 @@ targets:
         ENABLE_APP_SANDBOX: YES
         INFOPLIST_FILE: MDViewerQuickLook/Info.plist
         SKIP_INSTALL: YES
+    dependencies:
+      - package: swift-cmark-gfm
+        product: CMarkGFM
 
   MDViewerTests:
     type: bundle.unit-test
