@@ -45,11 +45,14 @@ enum MarkdownRenderer {
     /// contain `\(` which would break Swift string interpolation.
     static func buildSelfContainedHTML(markdown: String, bundle: Bundle) -> String {
         // Parse Markdown to HTML in Swift (cmark-gfm)
-        let renderedHTML = MarkdownParser.toHTML(markdown, unsafe: true)
+        var renderedHTML = MarkdownParser.toHTML(markdown, unsafe: true)
+
+        // Pre-render math via JavaScriptCore (no browser JS needed for KaTeX)
+        renderedHTML = KaTeXRenderer.renderMath(in: renderedHTML, bundle: bundle)
 
         var html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
 
-        // Inline CSS
+        // Inline CSS (katex.min.css provides styling for pre-rendered math)
         for name in cssFiles {
             html += "<style>" + readBundleResource(name, "css", bundle: bundle) + "</style>"
         }
@@ -60,24 +63,14 @@ enum MarkdownRenderer {
         html += ".task-list-item input[type=checkbox]{margin:0 .2em .25em -1.6em;}"
         html += "</style></head><body>"
         html += "<article class='markdown-body'>"
-
-        // Pre-rendered HTML from cmark-gfm (no JS parsing needed)
         html += renderedHTML
-
         html += "</article>"
 
-        // Inline JS — only highlight.js for syntax highlighting post-processing
-        for name in postProcessingJS {
-            html += "<script>" + readBundleResource(name, "js", bundle: bundle) + "</script>"
-        }
-
-        // Post-processing: syntax highlighting + math
+        // Only highlight.js needed — math is already pre-rendered, no KaTeX JS
         html += "<script>"
-        html += "document.querySelectorAll('pre code').forEach(function(b){hljs.highlightElement(b);});"
-        html += "if(typeof renderMathInElement!=='undefined'){"
-        html += "renderMathInElement(document.querySelector('.markdown-body'),{"
-        html += "delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],"
-        html += "throwOnError:false});}"
+        html += "var module=undefined,exports=undefined,define=undefined;"
+        html += readBundleResource("highlight.min", "js", bundle: bundle)
+        html += "\ndocument.querySelectorAll('pre code').forEach(function(b){hljs.highlightElement(b);});"
         html += "</script>"
 
         // Conditionally include Mermaid only when diagrams are present
@@ -102,7 +95,8 @@ enum MarkdownRenderer {
 
     private static let cssFiles = ["github-markdown", "github.min", "katex.min"]
 
-    private static let postProcessingJS = ["highlight.min", "katex.min", "katex-auto-render.min"]
+    // katex.min and katex-auto-render not needed for Quick Look
+    // (math is pre-rendered via JavaScriptCore in KaTeXRenderer)
 
     private static func readBundleResource(_ name: String, _ ext: String, bundle: Bundle) -> String {
         guard let url = bundle.url(forResource: name, withExtension: ext),

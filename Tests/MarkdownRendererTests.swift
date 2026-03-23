@@ -132,4 +132,5 @@ final class MarkdownRendererTests: XCTestCase {
         let html = MarkdownRenderer.buildSelfContainedHTML(markdown: "test", bundle: bundle)
         XCTAssertTrue(html.contains("hljs"))
     }
+
 }

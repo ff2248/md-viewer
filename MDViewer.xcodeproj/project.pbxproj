@@ -14,6 +14,7 @@
 		0D3F30F1AA1409713BA2E102 /* KaTeX_Size1-Regular.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = AE49273145D34F04EC6695B4 /* KaTeX_Size1-Regular.woff2 */; };
 		1C139276C72DC64AF3D46631 /* MDViewerQuickLook.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A83720CDD3EB744F25A3715F /* MDViewerQuickLook.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		2D49C144196ECFCCFA7A287A /* KaTeX_Size4-Regular.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = 5DAB0B4FA7D64A57D355DBCA /* KaTeX_Size4-Regular.woff2 */; };
+		2F9F3226FA6FE3B64E5DDD05 /* KaTeXRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 905493DC22FF311342C326C5 /* KaTeXRenderer.swift */; };
 		3260F45016A101C4615097E5 /* katex-auto-render.min.js in Resources */ = {isa = PBXBuildFile; fileRef = BB4C8F4544A0E31C0A33132B /* katex-auto-render.min.js */; };
 		37717AE462E2D7CABB109152 /* KaTeX_Main-Bold.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = B859115A3E55353C1D584BA9 /* KaTeX_Main-Bold.woff2 */; };
 		3D51ECD2EC23A7CC46679740 /* KaTeX_Main-Italic.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = 9257FDC4652AD82EA2C0D209 /* KaTeX_Main-Italic.woff2 */; };
@@ -43,6 +44,7 @@
 		8F4D8AC1E250588321BCF088 /* KaTeX_SansSerif-Regular.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = 244A12812A4DA9026C735E83 /* KaTeX_SansSerif-Regular.woff2 */; };
 		9DF16C7637D3CE88CAC74DC9 /* KaTeX_Fraktur-Regular.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = DA928CF799B6D5B2DB220CF3 /* KaTeX_Fraktur-Regular.woff2 */; };
 		A13993860A55915B927F503D /* KaTeX_Fraktur-Bold.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = 40199D265A95263772A60DFE /* KaTeX_Fraktur-Bold.woff2 */; };
+		A5F10CA257CEDBD11654DCD6 /* KaTeXRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 905493DC22FF311342C326C5 /* KaTeXRenderer.swift */; };
 		AED68FF21AF8EDC2152F3DC2 /* template.html in Resources */ = {isa = PBXBuildFile; fileRef = FBE61B98AB028969A77E50C2 /* template.html */; };
 		AFF0B47EC5A5D822C7D46357 /* mermaid.min.js in Resources */ = {isa = PBXBuildFile; fileRef = EEAD9AE7E7949E68E898870B /* mermaid.min.js */; };
 		B27F8120920F408AA2699876 /* KaTeX_SansSerif-Italic.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = A91CDA99FBB318E8A7C3A8E7 /* KaTeX_SansSerif-Italic.woff2 */; };
@@ -131,6 +133,7 @@
 		844D03CFEA040BD19F4C0CCA /* highlight.min.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = highlight.min.js; sourceTree = "<group>"; };
 		88BEA270BCA20FB190D12EAA /* KaTeX_Typewriter-Regular.woff2 */ = {isa = PBXFileReference; path = "KaTeX_Typewriter-Regular.woff2"; sourceTree = "<group>"; };
 		8ACE5B9DC3EA2EADC849D671 /* KaTeX_Main-Regular.woff2 */ = {isa = PBXFileReference; path = "KaTeX_Main-Regular.woff2"; sourceTree = "<group>"; };
+		905493DC22FF311342C326C5 /* KaTeXRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KaTeXRenderer.swift; sourceTree = "<group>"; };
 		9257FDC4652AD82EA2C0D209 /* KaTeX_Main-Italic.woff2 */ = {isa = PBXFileReference; path = "KaTeX_Main-Italic.woff2"; sourceTree = "<group>"; };
 		9461B1DAF24331FE19AE351F /* KaTeX_Math-Italic.woff2 */ = {isa = PBXFileReference; path = "KaTeX_Math-Italic.woff2"; sourceTree = "<group>"; };
 		9CA10FC3C61C08E0DEFAD920 /* MDViewerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MDViewerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -233,6 +236,7 @@
 		83422797CB7366FA0654C4B6 /* Shared */ = {
 			isa = PBXGroup;
 			children = (
+				905493DC22FF311342C326C5 /* KaTeXRenderer.swift */,
 				736CEF3E29239C2D78CC0EE8 /* MarkdownParser.swift */,
 				EA5A276D30F402066E0E211C /* MarkdownRenderer.swift */,
 			);
@@ -465,6 +469,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				014481C4A0C17851A6409723 /* ContentView.swift in Sources */,
+				2F9F3226FA6FE3B64E5DDD05 /* KaTeXRenderer.swift in Sources */,
 				427D880BBE37004B9607D1EE /* MDViewerApp.swift in Sources */,
 				889A3EC0855B826C283574EE /* MarkdownParser.swift in Sources */,
 				E1012B5D52A607AFF27107E2 /* MarkdownRenderer.swift in Sources */,
@@ -476,6 +481,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A5F10CA257CEDBD11654DCD6 /* KaTeXRenderer.swift in Sources */,
 				E5BB0CC5EB8AD2108B0B64DD /* MarkdownParser.swift in Sources */,
 				C16FAF59773E9A3C347366BC /* MarkdownRenderer.swift in Sources */,
 				5A6684FB8934972510698915 /* PreviewViewController.swift in Sources */,
