@@ -51,11 +51,13 @@ echo "  highlight.js: $(du -h "$OUTPUT_DIR/highlight.min.js" | awk '{print $1}')
 "))"
 
 # ============================================================
-# 2. KaTeX (→ window.katex)
+# 2. KaTeX + auto-render combined (→ window.katex + window.renderMathInElement)
 # ============================================================
 cat > entry-katex.js << 'EOF'
 import katex from 'katex';
+import renderMathInElement from 'katex/contrib/auto-render';
 window.katex = katex;
+window.renderMathInElement = renderMathInElement;
 EOF
 
 npx esbuild entry-katex.js \
@@ -63,27 +65,7 @@ npx esbuild entry-katex.js \
   --outfile="$OUTPUT_DIR/katex.min.js" \
   2>&1 | grep -v "^$"
 
-echo "  katex.js:      $(du -h "$OUTPUT_DIR/katex.min.js" | awk '{print $1}')"
-
-# ============================================================
-# 3. KaTeX auto-render (→ window.renderMathInElement)
-# ============================================================
-cat > entry-katex-auto-render.js << 'EOF'
-import renderMathInElement from 'katex/contrib/auto-render';
-window.renderMathInElement = renderMathInElement;
-EOF
-
-npx esbuild entry-katex-auto-render.js \
-  --bundle --minify --format=iife \
-  --external:katex \
-  --outfile="$OUTPUT_DIR/katex-auto-render.min.js" \
-  2>&1 | grep -v "^$"
-
-# katex-auto-render references katex as external — need to patch
-# Replace the external require with window.katex
-sed -i '' 's/require("katex")/window.katex/g' "$OUTPUT_DIR/katex-auto-render.min.js"
-
-echo "  katex-auto-render: $(du -h "$OUTPUT_DIR/katex-auto-render.min.js" | awk '{print $1}')"
+echo "  katex.js:      $(du -h "$OUTPUT_DIR/katex.min.js" | awk '{print $1}') (includes auto-render)"
 
 # ============================================================
 # 4. Mermaid (→ window.mermaid)

@@ -37,11 +37,12 @@ enum KaTeXRenderer {
               let katexJS = try? String(contentsOf: katexURL, encoding: .utf8) else { return nil }
 
         let ctx = JSContext()!
-        // KaTeX's IIFE uses "self" — provide it
-        ctx.evaluateScript("var self = this;")
+        // esbuild bundles use window.* — provide window and self
+        ctx.evaluateScript("var self = this; var window = this;")
         ctx.evaluateScript(katexJS)
 
-        // Verify katex loaded
+        // esbuild bundles set window.katex
+        ctx.evaluateScript("if(typeof katex==='undefined') var katex = window.katex;")
         guard let test = ctx.evaluateScript("typeof katex"), test.toString() == "object" else { return nil }
 
         cachedContext = ctx

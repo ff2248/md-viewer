@@ -76,7 +76,7 @@ struct MarkdownWebView: NSViewRepresentable {
         /// these globals defined, causing UMD libraries to use CommonJS exports.
         private lazy var jsLibraries: String = {
             var js = "var module=undefined,exports=undefined,define=undefined;\n"
-            let files = ["highlight.min", "katex.min", "katex-auto-render.min"]
+            let files = ["highlight.min", "katex.min"]
             for name in files {
                 if let url = bundle.url(forResource: name, withExtension: "js"),
                    let content = try? String(contentsOf: url, encoding: .utf8) {

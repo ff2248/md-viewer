@@ -78,10 +78,13 @@ enum HighlightRenderer {
               let hljsJS = try? String(contentsOf: hljsURL, encoding: .utf8) else { return nil }
 
         let ctx = JSContext()!
-        ctx.evaluateScript("var self = this; var module = undefined; var exports = undefined;")
+        ctx.evaluateScript("var self = this; var window = this; var module = undefined; var exports = undefined;")
         ctx.evaluateScript(hljsJS)
 
-        guard let test = ctx.evaluateScript("typeof hljs"), test.toString() == "object" else { return nil }
+        // esbuild bundles set window.hljs
+        guard let test = ctx.evaluateScript("typeof hljs !== 'undefined' ? 'object' : typeof window.hljs"),
+              test.toString() == "object" else { return nil }
+        ctx.evaluateScript("if(typeof hljs==='undefined') var hljs = window.hljs;")
 
         cachedContext = ctx
         return ctx

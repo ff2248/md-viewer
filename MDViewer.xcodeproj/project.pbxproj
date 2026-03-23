@@ -15,7 +15,6 @@
 		1C139276C72DC64AF3D46631 /* MDViewerQuickLook.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A83720CDD3EB744F25A3715F /* MDViewerQuickLook.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		2D49C144196ECFCCFA7A287A /* KaTeX_Size4-Regular.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = 5DAB0B4FA7D64A57D355DBCA /* KaTeX_Size4-Regular.woff2 */; };
 		2F9F3226FA6FE3B64E5DDD05 /* KaTeXRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 905493DC22FF311342C326C5 /* KaTeXRenderer.swift */; };
-		3260F45016A101C4615097E5 /* katex-auto-render.min.js in Resources */ = {isa = PBXBuildFile; fileRef = BB4C8F4544A0E31C0A33132B /* katex-auto-render.min.js */; };
 		37717AE462E2D7CABB109152 /* KaTeX_Main-Bold.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = B859115A3E55353C1D584BA9 /* KaTeX_Main-Bold.woff2 */; };
 		3D51ECD2EC23A7CC46679740 /* KaTeX_Main-Italic.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = 9257FDC4652AD82EA2C0D209 /* KaTeX_Main-Italic.woff2 */; };
 		40F439E39F9CA24BA1CD9A12 /* KaTeX_SansSerif-Italic.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = A91CDA99FBB318E8A7C3A8E7 /* KaTeX_SansSerif-Italic.woff2 */; };
@@ -26,7 +25,6 @@
 		43FB53103DB26CDDAAF7BDAF /* KaTeX_Caligraphic-Bold.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = D2B05C3E4A519AC58E73C2F5 /* KaTeX_Caligraphic-Bold.woff2 */; };
 		4985E46D9A2F890B4EBB8E1D /* MarkdownWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 017AEC17777962CB26EED41A /* MarkdownWebView.swift */; };
 		4BEE7483C0685E2D8DCAEC84 /* KaTeX_Main-Regular.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = 8ACE5B9DC3EA2EADC849D671 /* KaTeX_Main-Regular.woff2 */; };
-		501AEC2F49F72BD134A2A4C6 /* katex-auto-render.min.js in Resources */ = {isa = PBXBuildFile; fileRef = BB4C8F4544A0E31C0A33132B /* katex-auto-render.min.js */; };
 		508B443721C9D9DE44278F25 /* katex.min.js in Resources */ = {isa = PBXBuildFile; fileRef = D950C0C5E694E83DC1EE66C8 /* katex.min.js */; };
 		5A6684FB8934972510698915 /* PreviewViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EDCEBE75C99AEC98D3A0084 /* PreviewViewController.swift */; };
 		5AFE6973D646AC37922F1CD5 /* github-markdown.css in Resources */ = {isa = PBXBuildFile; fileRef = 2399490BA0950C03B8F5D8D0 /* github-markdown.css */; };
@@ -146,7 +144,6 @@
 		B5D6B305756D391D45B32303 /* katex.min.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = katex.min.css; sourceTree = "<group>"; };
 		B859115A3E55353C1D584BA9 /* KaTeX_Main-Bold.woff2 */ = {isa = PBXFileReference; path = "KaTeX_Main-Bold.woff2"; sourceTree = "<group>"; };
 		BA1FC6C4F23189BDBA10D911 /* KaTeX_Caligraphic-Regular.woff2 */ = {isa = PBXFileReference; path = "KaTeX_Caligraphic-Regular.woff2"; sourceTree = "<group>"; };
-		BB4C8F4544A0E31C0A33132B /* katex-auto-render.min.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "katex-auto-render.min.js"; sourceTree = "<group>"; };
 		CB4DB72A5650DF0D53D2D818 /* KaTeX_Math-BoldItalic.woff2 */ = {isa = PBXFileReference; path = "KaTeX_Math-BoldItalic.woff2"; sourceTree = "<group>"; };
 		D2B05C3E4A519AC58E73C2F5 /* KaTeX_Caligraphic-Bold.woff2 */ = {isa = PBXFileReference; path = "KaTeX_Caligraphic-Bold.woff2"; sourceTree = "<group>"; };
 		D950C0C5E694E83DC1EE66C8 /* katex.min.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = katex.min.js; sourceTree = "<group>"; };
@@ -265,7 +262,6 @@
 				2399490BA0950C03B8F5D8D0 /* github-markdown.css */,
 				4B84D07EAF60F4FA755EB2B2 /* github.min.css */,
 				844D03CFEA040BD19F4C0CCA /* highlight.min.js */,
-				BB4C8F4544A0E31C0A33132B /* katex-auto-render.min.js */,
 				B5D6B305756D391D45B32303 /* katex.min.css */,
 				D950C0C5E694E83DC1EE66C8 /* katex.min.js */,
 				EEAD9AE7E7949E68E898870B /* mermaid.min.js */,
@@ -421,7 +417,6 @@
 				E63BDAA1DA35CE5C1658D350 /* github-markdown.css in Resources */,
 				FE6EA243B0D14DB8FB97469F /* github.min.css in Resources */,
 				6FBE92B713654C9A5221E913 /* highlight.min.js in Resources */,
-				3260F45016A101C4615097E5 /* katex-auto-render.min.js in Resources */,
 				00C83170AB7AC44D611B2629 /* katex.min.css in Resources */,
 				508B443721C9D9DE44278F25 /* katex.min.js in Resources */,
 				89DDD3774799A11A067DCA55 /* mermaid.min.js in Resources */,
@@ -457,7 +452,6 @@
 				5AFE6973D646AC37922F1CD5 /* github-markdown.css in Resources */,
 				82DDC7F58E29FE1ADFFB188A /* github.min.css in Resources */,
 				BC517FAF29B9031430DCECB2 /* highlight.min.js in Resources */,
-				501AEC2F49F72BD134A2A4C6 /* katex-auto-render.min.js in Resources */,
 				EC2008CAFEFFD128D931CD0D /* katex.min.css in Resources */,
 				E1B1E8FBB826DA5C74D42687 /* katex.min.js in Resources */,
 				AFF0B47EC5A5D822C7D46357 /* mermaid.min.js in Resources */,
