@@ -56,6 +56,8 @@ enum MarkdownRenderer {
         html += "<style>"
         html += "body{box-sizing:border-box;margin:0;padding:16px 40px 40px 40px;background:#fff;}"
         html += ".markdown-body{font-size:16px;}"
+        html += ".markdown-body pre{padding:12px;}"
+        html += ".markdown-body code,.markdown-body pre code{font-size:13px;}"
         html += ".task-list-item{list-style-type:none;}"
         html += ".task-list-item input[type=checkbox]{margin:0 .2em .25em -1.6em;}"
         html += "</style></head><body>"
