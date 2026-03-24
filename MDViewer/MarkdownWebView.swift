@@ -8,8 +8,11 @@ struct Heading: Identifiable, Equatable {
     let text: String
 }
 
-/// Manages a pre-loaded WKWebView with template + JS libraries already injected.
-/// Created at app launch so the WebView is ready before the user opens a file.
+/// Manages a pre-loaded WKWebView and pre-warmed JSContexts for instant rendering.
+///
+/// At init: creates WKWebView + loads template (CSS only).
+/// Also pre-warms HighlightRenderer and KaTeXRenderer JSContexts in background.
+/// When user opens a file: Swift pre-renders everything → WKWebView just sets innerHTML.
 class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMessageHandler {
     let webView: WKWebView
     var onHeadingsLoaded: (([Heading]) -> Void)?
@@ -20,7 +23,6 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
     private var mermaidInjected = false
     private let bundle: Bundle
 
-    private static var cachedJSLibraries: String?
     private static var cachedMermaidJS: String?
 
     init(bundle: Bundle = .main) {
@@ -39,10 +41,16 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
         uc.add(self, name: "headings")
         webView.navigationDelegate = self
 
-        // Start loading template + CSS immediately
+        // 1. Start loading template + CSS immediately
         if let templateURL = bundle.url(forResource: "template", withExtension: "html"),
            let resourcesURL = bundle.resourceURL {
             webView.loadFileURL(templateURL, allowingReadAccessTo: resourcesURL)
+        }
+
+        // 2. Pre-warm JSContexts in background (so they're ready when user opens a file)
+        DispatchQueue.global(qos: .userInitiated).async {
+            _ = HighlightRenderer.highlight(in: "<pre><code class=\"language-js\">x</code></pre>", bundle: bundle)
+            _ = KaTeXRenderer.renderMath(in: "<p>$x$</p>", bundle: bundle)
         }
     }
 
@@ -50,7 +58,6 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
         webView.evaluateJavaScript("scrollToHeading('\(id)');") { _, _ in }
     }
 
-    /// Called when markdown content changes. If WebView is ready, renders immediately.
     func render(markdown: String) {
         guard markdown != lastRendered else { return }
         pendingMarkdown = markdown
@@ -62,13 +69,10 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
     // MARK: - WKNavigationDelegate
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        // Template loaded — now inject JS libraries
-        webView.evaluateJavaScript(jsLibraries) { [weak self] _, _ in
-            guard let self else { return }
-            self.isReady = true
-            if let md = self.pendingMarkdown {
-                self.injectMarkdown(md)
-            }
+        // Template loaded — WebView is ready (no JS libraries to inject anymore)
+        isReady = true
+        if let md = pendingMarkdown {
+            injectMarkdown(md)
         }
     }
 
@@ -92,19 +96,6 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
 
     // MARK: - Private
 
-    private var jsLibraries: String {
-        if let cached = Self.cachedJSLibraries { return cached }
-        var js = "var module=undefined,exports=undefined,define=undefined;\n"
-        for name in ["highlight.min", "katex.min"] {
-            if let url = bundle.url(forResource: name, withExtension: "js"),
-               let content = try? String(contentsOf: url, encoding: .utf8) {
-                js += content + "\n"
-            }
-        }
-        Self.cachedJSLibraries = js
-        return js
-    }
-
     private var mermaidJS: String? {
         if let cached = Self.cachedMermaidJS { return cached }
         guard let url = bundle.url(forResource: "mermaid.min", withExtension: "js"),
@@ -114,9 +105,14 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
     }
 
     private func injectMarkdown(_ markdown: String) {
-        let html = MarkdownParser.toHTML(markdown, unsafe: true)
+        // All rendering in Swift — WKWebView just displays the result
+        var html = MarkdownParser.toHTML(markdown, unsafe: true)
+        html = HighlightRenderer.highlight(in: html, bundle: bundle)
+        html = KaTeXRenderer.renderMath(in: html, bundle: bundle)
+
         let base64 = Data(html.utf8).base64EncodedString()
 
+        // Mermaid still needs browser JS (requires DOM)
         let hasMermaid = markdown.contains("```mermaid")
         if hasMermaid && !mermaidInjected, let js = mermaidJS {
             webView.evaluateJavaScript(js) { [weak self] _, _ in
@@ -132,7 +128,7 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
     }
 }
 
-/// Thin NSViewRepresentable wrapper — the WebView is owned by WebViewProxy.
+/// Thin NSViewRepresentable — the WebView is owned by WebViewProxy.
 struct MarkdownWebView: NSViewRepresentable {
     let proxy: WebViewProxy
     let markdown: String

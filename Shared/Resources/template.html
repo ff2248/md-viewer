@@ -20,53 +20,31 @@
 </head>
 <body>
     <article class="markdown-body" id="content"></article>
-
-    <!--
-        JS libraries are NOT loaded via <script src> because WKWebView's
-        module/exports globals break UMD detection. Instead, JS is injected
-        by Swift via evaluateJavaScript after this template loads.
-    -->
-
     <script>
+        // All rendering (highlight, KaTeX) is pre-done in Swift via JSContext.
+        // This JS only handles: setting innerHTML, mermaid, headings, scrolling.
+
         function renderHTML(base64Html) {
             try {
                 var binary = atob(base64Html);
                 var bytes = new Uint8Array(binary.length);
                 for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-                var html = new TextDecoder('utf-8').decode(bytes);
+                document.getElementById('content').innerHTML = new TextDecoder('utf-8').decode(bytes);
 
-                document.getElementById('content').innerHTML = html;
-
-                // Syntax highlighting (hljs injected by Swift)
-                if (typeof hljs !== 'undefined') {
-                    document.querySelectorAll('pre code').forEach(function(block) {
-                        hljs.highlightElement(block);
-                    });
-                }
-
-                // Math rendering (katex + renderMathInElement injected by Swift)
-                if (typeof renderMathInElement !== 'undefined') {
-                    renderMathInElement(document.getElementById('content'), {
-                        delimiters: [
-                            {left: '$$', right: '$$', display: true},
-                            {left: '$', right: '$', display: false}
-                        ],
-                        throwOnError: false
-                    });
-                }
-
-                // Mermaid (lazy-loaded by Swift only when needed)
+                // Mermaid: transform code blocks then render (mermaid.js injected by Swift when needed)
                 var mermaidBlocks = document.querySelectorAll('pre code.language-mermaid');
-                mermaidBlocks.forEach(function(codeBlock) {
-                    var pre = codeBlock.parentElement;
-                    var div = document.createElement('div');
-                    div.className = 'mermaid';
-                    div.textContent = codeBlock.textContent;
-                    pre.parentElement.replaceChild(div, pre);
-                });
-                if (document.querySelectorAll('.mermaid').length > 0 && typeof mermaid !== 'undefined') {
-                    mermaid.initialize({ startOnLoad: false, theme: 'default' });
-                    mermaid.run();
+                if (mermaidBlocks.length > 0) {
+                    mermaidBlocks.forEach(function(cb) {
+                        var pre = cb.parentElement;
+                        var div = document.createElement('div');
+                        div.className = 'mermaid';
+                        div.textContent = cb.textContent;
+                        pre.parentElement.replaceChild(div, pre);
+                    });
+                    if (typeof mermaid !== 'undefined') {
+                        mermaid.initialize({ startOnLoad: false, theme: 'default' });
+                        mermaid.run();
+                    }
                 }
 
                 extractHeadings();
