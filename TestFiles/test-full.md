@@ -164,7 +164,7 @@ func main() {
 
 ![GitHub Logo](https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png)
 
-![Placeholder](https://via.placeholder.com/600x200/0366d6/ffffff?text=MDViewer+Test+Image)
+![Placeholder](https://placehold.co/600x200/0366d6/ffffff?text=MDViewer+Test+Image)
 
 ## Emoji 短碼
 
