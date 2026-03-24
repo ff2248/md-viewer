@@ -18,14 +18,12 @@ struct ContentView: View {
                     tocSidebar
                     Divider()
                 }
-                MarkdownWebView(
-                    markdown: appState.markdown,
-                    bundle: .main,
-                    proxy: webProxy,
-                    onHeadingsLoaded: { self.headings = $0 }
-                )
+                MarkdownWebView(proxy: webProxy, markdown: appState.markdown)
             }
             .ignoresSafeArea()
+            .onAppear {
+                webProxy.onHeadingsLoaded = { self.headings = $0 }
+            }
             .onChange(of: appState.markdown) { _ in
                 headings = []
                 selectedHeadingID = nil
