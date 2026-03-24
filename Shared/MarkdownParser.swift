@@ -18,14 +18,8 @@ enum MarkdownParser {
     /// - Returns: Rendered HTML string.
     static func toHTML(_ markdown: String, unsafe: Bool = false) -> String {
         var text = markdown
-
-        // Pre-processing: strip YAML front matter
         text = stripFrontMatter(text)
-
-        // Pre-processing: replace emoji shortcodes
         text = replaceEmojiShortcodes(text)
-
-        // cmark-gfm parsing
         return cmarkToHTML(text, unsafe: unsafe)
     }
 
@@ -44,14 +38,26 @@ enum MarkdownParser {
     }
 
     /// Replaces `:shortcode:` emoji patterns with their Unicode equivalents.
+    /// Uses single regex scan + dictionary lookup instead of iterating all entries.
     static func replaceEmojiShortcodes(_ text: String) -> String {
         guard text.contains(":") else { return text }
+        let nsText = text as NSString
+        let matches = Self.emojiRegex.matches(in: text, range: NSRange(location: 0, length: nsText.length))
+        guard !matches.isEmpty else { return text }
+
         var result = text
-        for (code, emoji) in emojiMap {
-            result = result.replacingOccurrences(of: ":\(code):", with: emoji)
+        for match in matches.reversed() {
+            guard let keyRange = Range(match.range(at: 1), in: result),
+                  let fullRange = Range(match.range, in: result) else { continue }
+            let key = String(result[keyRange])
+            if let emoji = emojiMap[key] {
+                result.replaceSubrange(fullRange, with: emoji)
+            }
         }
         return result
     }
+
+    private static let emojiRegex = try! NSRegularExpression(pattern: ":([a-z0-9_+]+):", options: [])
 
     // MARK: - cmark-gfm
 

@@ -8,20 +8,12 @@ import JavaScriptCore
 /// with highlighted HTML. No browser-side JavaScript needed.
 enum HighlightRenderer {
 
-    /// Process HTML to add syntax highlighting to code blocks.
     static func highlight(in html: String, bundle: Bundle = .main) -> String {
         guard html.contains("<code") else { return html }
-
         guard let ctx = makeContext(bundle: bundle) else { return html }
 
-        // Match <pre><code class="language-xxx">...</code></pre>
-        guard let regex = try? NSRegularExpression(
-            pattern: "<pre><code class=\"language-([^\"]+)\">([\\s\\S]*?)</code></pre>",
-            options: []
-        ) else { return html }
-
         let nsHTML = html as NSString
-        let matches = regex.matches(in: html, range: NSRange(location: 0, length: nsHTML.length))
+        let matches = Self.codeBlockRegex.matches(in: html, range: NSRange(location: 0, length: nsHTML.length))
 
         var result = html
         for match in matches.reversed() {
@@ -30,29 +22,15 @@ enum HighlightRenderer {
                   let codeRange = Range(match.range(at: 2), in: result) else { continue }
 
             let lang = String(result[langRange])
-            let code = String(result[codeRange])
-
-            // Unescape HTML entities that cmark-gfm may have produced
-            let unescaped = code
-                .replacingOccurrences(of: "&amp;", with: "&")
-                .replacingOccurrences(of: "&lt;", with: "<")
-                .replacingOccurrences(of: "&gt;", with: ">")
-                .replacingOccurrences(of: "&quot;", with: "\"")
-
-            // Escape for JS string
-            let jsEscaped = unescaped
-                .replacingOccurrences(of: "\\", with: "\\\\")
-                .replacingOccurrences(of: "'", with: "\\'")
-                .replacingOccurrences(of: "\n", with: "\\n")
-                .replacingOccurrences(of: "\r", with: "\\r")
+            let code = String(result[codeRange]).htmlUnescaped
 
             let js = """
             (function(){
                 try {
                     if (hljs.getLanguage('\(lang)')) {
-                        return hljs.highlight('\(jsEscaped)', {language: '\(lang)'}).value;
+                        return hljs.highlight('\(code.jsEscaped)', {language: '\(lang)'}).value;
                     } else {
-                        return hljs.highlightAuto('\(jsEscaped)').value;
+                        return hljs.highlightAuto('\(code.jsEscaped)').value;
                     }
                 } catch(e) { return ''; }
             })()
@@ -71,6 +49,11 @@ enum HighlightRenderer {
 
     private static var cachedContext: JSContext?
 
+    private static let codeBlockRegex = try! NSRegularExpression(
+        pattern: "<pre><code class=\"language-([^\"]+)\">([\\s\\S]*?)</code></pre>",
+        options: []
+    )
+
     private static func makeContext(bundle: Bundle) -> JSContext? {
         if let cached = cachedContext { return cached }
 
@@ -80,11 +63,8 @@ enum HighlightRenderer {
         let ctx = JSContext()!
         ctx.evaluateScript("var self = this; var window = this; var module = undefined; var exports = undefined;")
         ctx.evaluateScript(hljsJS)
-
-        // esbuild bundles set window.hljs
-        guard let test = ctx.evaluateScript("typeof hljs !== 'undefined' ? 'object' : typeof window.hljs"),
-              test.toString() == "object" else { return nil }
-        ctx.evaluateScript("if(typeof hljs==='undefined') var hljs = window.hljs;")
+        ctx.evaluateScript("if(typeof hljs==='undefined' && typeof window.hljs!=='undefined') { var hljs=window.hljs; }")
+        guard let test = ctx.evaluateScript("typeof hljs"), test.toString() == "object" else { return nil }
 
         cachedContext = ctx
         return ctx

@@ -72,7 +72,6 @@ class AppState: ObservableObject {
             markdown = ""
             windowTitle = "MDViewer"
         }
-        // Set native window title directly
         DispatchQueue.main.async {
             NSApplication.shared.mainWindow?.title = self.windowTitle
         }

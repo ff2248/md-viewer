@@ -21,7 +21,7 @@ class WebViewProxy: ObservableObject {
 ///
 /// Flow:
 /// 1. Load template.html (CSS only, no JS libraries)
-/// 2. didFinish → inject JS libs via evaluateJavaScript (avoids WKWebView module/exports issue)
+/// 2. didFinish → inject JS libs via evaluateJavaScript (WKWebView has module/exports that break UMD)
 /// 3. Inject cmark-gfm rendered HTML → JS post-processes (highlight, KaTeX, mermaid)
 struct MarkdownWebView: NSViewRepresentable {
     let markdown: String
@@ -68,23 +68,34 @@ struct MarkdownWebView: NSViewRepresentable {
         var lastRendered: String?
         var pendingMarkdown: String?
         var isReady = false
+        private var mermaidInjected = false
         let bundle: Bundle
         let onHeadingsLoaded: ([Heading]) -> Void
 
-        /// JS library contents, read once from bundle.
-        /// Prepends module/exports/define neutralization because WKWebView has
-        /// these globals defined, causing UMD libraries to use CommonJS exports.
-        private lazy var jsLibraries: String = {
+        /// JS libraries read once from bundle, with module/exports neutralization.
+        private static var cachedJSLibraries: String?
+        private var jsLibraries: String {
+            if let cached = Self.cachedJSLibraries { return cached }
             var js = "var module=undefined,exports=undefined,define=undefined;\n"
-            let files = ["highlight.min", "katex.min"]
-            for name in files {
+            for name in ["highlight.min", "katex.min"] {
                 if let url = bundle.url(forResource: name, withExtension: "js"),
                    let content = try? String(contentsOf: url, encoding: .utf8) {
                     js += content + "\n"
                 }
             }
+            Self.cachedJSLibraries = js
             return js
-        }()
+        }
+
+        /// Mermaid JS read once from bundle (2.5 MB — only loaded when needed).
+        private static var cachedMermaidJS: String?
+        private var mermaidJS: String? {
+            if let cached = Self.cachedMermaidJS { return cached }
+            guard let url = bundle.url(forResource: "mermaid.min", withExtension: "js"),
+                  let content = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+            Self.cachedMermaidJS = content
+            return content
+        }
 
         init(bundle: Bundle, onHeadingsLoaded: @escaping ([Heading]) -> Void) {
             self.bundle = bundle
@@ -92,7 +103,6 @@ struct MarkdownWebView: NSViewRepresentable {
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            // Inject JS libraries after template loads (bypasses WKWebView's module/exports issue)
             webView.evaluateJavaScript(jsLibraries) { [weak self] _, _ in
                 guard let self else { return }
                 self.isReady = true
@@ -106,11 +116,10 @@ struct MarkdownWebView: NSViewRepresentable {
             let html = MarkdownParser.toHTML(markdown, unsafe: true)
             let base64 = Data(html.utf8).base64EncodedString()
 
-            // Check if mermaid diagrams exist and inject mermaid.js if needed
             let hasMermaid = markdown.contains("```mermaid")
-            if hasMermaid, let mermaidURL = bundle.url(forResource: "mermaid.min", withExtension: "js"),
-               let mermaidJS = try? String(contentsOf: mermaidURL, encoding: .utf8) {
-                webView.evaluateJavaScript(mermaidJS) { _, _ in
+            if hasMermaid && !mermaidInjected, let js = mermaidJS {
+                webView.evaluateJavaScript(js) { [weak self] _, _ in
+                    self?.mermaidInjected = true
                     webView.evaluateJavaScript("renderHTML('\(base64)');") { _, _ in }
                 }
             } else {

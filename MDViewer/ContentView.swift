@@ -5,6 +5,7 @@ struct ContentView: View {
     @State private var headings: [Heading] = []
     @State private var selectedHeadingID: String?
     @State private var sidebarWidth: CGFloat = 240
+    @State private var isCursorPushed = false
     @GestureState private var dragOffset: CGFloat = 0
     @StateObject private var webProxy = WebViewProxy()
 
@@ -50,7 +51,6 @@ struct ContentView: View {
 
     private var tocSidebar: some View {
         VStack(spacing: 0) {
-            // Sidebar header with toggle
             HStack {
                 Text("Contents")
                     .font(.headline)
@@ -69,7 +69,6 @@ struct ContentView: View {
 
             Divider()
 
-            // Heading list
             List(headings, selection: $selectedHeadingID) { heading in
                 Text(heading.text)
                     .font(fontForLevel(heading.level))
@@ -97,10 +96,12 @@ struct ContentView: View {
             .frame(width: 6)
             .contentShape(Rectangle())
             .onHover { hovering in
-                if hovering {
+                if hovering && !isCursorPushed {
                     NSCursor.resizeLeftRight.push()
-                } else {
+                    isCursorPushed = true
+                } else if !hovering && isCursorPushed {
                     NSCursor.pop()
+                    isCursorPushed = false
                 }
             }
             .gesture(

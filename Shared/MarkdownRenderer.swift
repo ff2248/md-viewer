@@ -34,26 +34,22 @@ enum MarkdownRenderer {
         """
     }
 
-    /// Builds a self-contained HTML page with pre-rendered Markdown and inlined JS/CSS.
+    /// Builds a self-contained HTML page for Quick Look.
     ///
-    /// Used by the Quick Look extension where external file loading is unavailable.
-    /// Markdown is parsed to HTML by cmark-gfm in Swift — no JS parsing needed.
-    /// Only highlight.js is inlined for syntax highlighting post-processing.
-    /// Mermaid is excluded to keep the payload small.
+    /// Markdown is parsed by cmark-gfm, then syntax highlighting and math
+    /// are pre-rendered via JavaScriptCore. Only CSS is inlined — no JS
+    /// is needed at render time, except Mermaid which requires a DOM and
+    /// is conditionally included when diagram blocks are present.
     ///
-    /// Note: Uses string concatenation (not interpolation) because JS files
+    /// Uses string concatenation (not interpolation) because JS files
     /// contain `\(` which would break Swift string interpolation.
     static func buildSelfContainedHTML(markdown: String, bundle: Bundle) -> String {
-        // Parse Markdown to HTML in Swift (cmark-gfm)
         var renderedHTML = MarkdownParser.toHTML(markdown, unsafe: true)
-
-        // Pre-render in Swift via JavaScriptCore (no browser JS needed at all)
         renderedHTML = HighlightRenderer.highlight(in: renderedHTML, bundle: bundle)
         renderedHTML = KaTeXRenderer.renderMath(in: renderedHTML, bundle: bundle)
 
         var html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
 
-        // Inline CSS only — no JavaScript needed in Quick Look
         for name in cssFiles {
             html += "<style>" + readBundleResource(name, "css", bundle: bundle) + "</style>"
         }
@@ -67,9 +63,7 @@ enum MarkdownRenderer {
         html += renderedHTML
         html += "</article>"
 
-        // Conditionally include Mermaid only when diagrams are present
-        let hasMermaid = markdown.contains("```mermaid")
-        if hasMermaid {
+        if markdown.contains("```mermaid") {
             html += "<script>" + readBundleResource("mermaid.min", "js", bundle: bundle) + "</script>"
             html += "<script>"
             html += "document.querySelectorAll('pre code.language-mermaid').forEach(function(cb){"
@@ -81,20 +75,20 @@ enum MarkdownRenderer {
         }
 
         html += "</body></html>"
-
         return html
     }
 
     // MARK: - Private
 
     private static let cssFiles = ["github-markdown", "github.min", "katex.min"]
-
-    // katex.min and katex-auto-render not needed for Quick Look
-    // (math is pre-rendered via JavaScriptCore in KaTeXRenderer)
+    private static var resourceCache: [String: String] = [:]
 
     private static func readBundleResource(_ name: String, _ ext: String, bundle: Bundle) -> String {
+        let key = "\(name).\(ext)"
+        if let cached = resourceCache[key] { return cached }
         guard let url = bundle.url(forResource: name, withExtension: ext),
               let content = try? String(contentsOf: url, encoding: .utf8) else { return "" }
+        resourceCache[key] = content
         return content
     }
 }
