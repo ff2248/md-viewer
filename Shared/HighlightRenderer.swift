@@ -1,4 +1,5 @@
 import Foundation
+import RegexBuilder
 
 /// Pre-renders syntax highlighting via highlight.js in JavaScriptCore.
 ///
@@ -11,17 +12,12 @@ enum HighlightRenderer {
         guard html.contains("<code") else { return html }
         guard let ctx = cache.context(bundle: bundle) else { return html }
 
-        let nsHTML = html as NSString
-        let matches = Self.codeBlockRegex.matches(in: html, range: NSRange(location: 0, length: nsHTML.length))
-
         var result = html
+        // Replace in reverse order to preserve indices
+        let matches = Array(result.matches(of: codeBlockRegex))
         for match in matches.reversed() {
-            guard let fullRange = Range(match.range, in: result),
-                  let langRange = Range(match.range(at: 1), in: result),
-                  let codeRange = Range(match.range(at: 2), in: result) else { continue }
-
-            let lang = String(result[langRange])
-            let code = String(result[codeRange]).htmlUnescaped
+            let lang = String(match.output.1)
+            let code = String(match.output.2).htmlUnescaped
 
             let js = """
             (function(){
@@ -37,7 +33,7 @@ enum HighlightRenderer {
 
             if let highlighted = ctx.evaluateScript(js)?.toString(), !highlighted.isEmpty {
                 let replacement = "<pre><code class=\"hljs language-\(lang)\">\(highlighted)</code></pre>"
-                result.replaceSubrange(fullRange, with: replacement)
+                result.replaceSubrange(match.range, with: replacement)
             }
         }
 
@@ -52,8 +48,12 @@ enum HighlightRenderer {
         globalName: "hljs"
     )
 
-    private static let codeBlockRegex = try! NSRegularExpression(
-        pattern: "<pre><code class=\"language-([^\"]+)\">([\\s\\S]*?)</code></pre>",
-        options: []
-    )
+    nonisolated(unsafe) private static let codeBlockRegex = Regex {
+        "<pre><code class=\"language-"
+        Capture { OneOrMore(.reluctant) { /[^"]/ } }
+        "\">"
+        Capture { ZeroOrMore(.reluctant) { /./ } }
+        "</code></pre>"
+    }
+    .dotMatchesNewlines()
 }

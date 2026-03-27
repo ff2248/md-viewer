@@ -13,8 +13,8 @@ enum KaTeXRenderer {
         guard let ctx = cache.context(bundle: bundle) else { return html }
 
         var result = html
-        result = replaceMath(in: result, regex: Self.displayMathRegex, display: true, context: ctx)
-        result = replaceMath(in: result, regex: Self.inlineMathRegex, display: false, context: ctx)
+        result = replaceDisplay(in: result, context: ctx)
+        result = replaceInline(in: result, context: ctx)
         return result
     }
 
@@ -25,35 +25,50 @@ enum KaTeXRenderer {
         globalName: "katex"
     )
 
-    private static let displayMathRegex = try! NSRegularExpression(
-        pattern: "\\$\\$(.+?)\\$\\$", options: [.dotMatchesLineSeparators]
-    )
-    private static let inlineMathRegex = try! NSRegularExpression(
-        pattern: "(?<!\\$)\\$(?!\\$)(.+?)(?<!\\$)\\$(?!\\$)", options: [.dotMatchesLineSeparators]
-    )
+    // $$...$$  (display math)
+    nonisolated(unsafe) private static let displayMathRegex = /\$\$(.+?)\$\$/
+        .dotMatchesNewlines()
 
-    private static func replaceMath(in html: String, regex: NSRegularExpression, display: Bool, context: JSContext) -> String {
-        let nsHTML = html as NSString
-        let matches = regex.matches(in: html, range: NSRange(location: 0, length: nsHTML.length))
+    // $...$  (inline math) — Swift Regex doesn't support lookbehind,
+    // so we use a simple pattern and filter out $$ matches manually.
+    nonisolated(unsafe) private static let inlineMathRegex = /\$(.+?)\$/
+        .dotMatchesNewlines()
 
+    private static func replaceDisplay(in html: String, context: JSContext) -> String {
+        let matches = Array(html.matches(of: displayMathRegex))
         var result = html
         for match in matches.reversed() {
-            guard let fullRange = Range(match.range, in: result),
-                  let exprRange = Range(match.range(at: 1), in: result) else { continue }
-            let expr = String(result[exprRange])
-
-            let before = String(result[result.startIndex..<fullRange.lowerBound])
+            let before = String(result[result.startIndex..<match.range.lowerBound])
             if isInsideCodeBlock(before) { continue }
 
-            let escaped = expr.jsEscaped
-            let displayMode = display ? "true" : "false"
-            let js = "try{katex.renderToString('\(escaped)',{displayMode:\(displayMode),throwOnError:false})}catch(e){''}"
-
+            let expr = String(match.output.1)
+            let js = "try{katex.renderToString('\(expr.jsEscaped)',{displayMode:true,throwOnError:false})}catch(e){''}"
             if let rendered = context.evaluateScript(js)?.toString(), !rendered.isEmpty {
-                result.replaceSubrange(fullRange, with: rendered)
+                result.replaceSubrange(match.range, with: rendered)
             }
         }
+        return result
+    }
 
+    private static func replaceInline(in html: String, context: JSContext) -> String {
+        let matches = Array(html.matches(of: inlineMathRegex))
+        var result = html
+        for match in matches.reversed() {
+            // Skip if this is part of a $$ delimiter
+            let start = match.range.lowerBound
+            let end = match.range.upperBound
+            if start > result.startIndex && result[result.index(before: start)] == "$" { continue }
+            if end < result.endIndex && result[end] == "$" { continue }
+
+            let before = String(result[result.startIndex..<start])
+            if isInsideCodeBlock(before) { continue }
+
+            let expr = String(match.output.1)
+            let js = "try{katex.renderToString('\(expr.jsEscaped)',{displayMode:false,throwOnError:false})}catch(e){''}"
+            if let rendered = context.evaluateScript(js)?.toString(), !rendered.isEmpty {
+                result.replaceSubrange(match.range, with: rendered)
+            }
+        }
         return result
     }
 
