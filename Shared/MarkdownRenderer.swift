@@ -62,14 +62,7 @@ enum MarkdownRenderer {
         for name in cssFiles {
             html += "<style>" + readBundleResource(name, "css", bundle: bundle) + "</style>"
         }
-        html += "<style>"
-        html += "body{box-sizing:border-box;margin:0;padding:16px 40px 40px 40px;background:#fff;}"
-        html += ".markdown-body{font-size:16px;}"
-        html += ".markdown-body pre{padding:12px;}"
-        html += ".markdown-body code,.markdown-body pre code{font-size:13px;}"
-        html += ".task-list-item{list-style-type:none;}"
-        html += ".task-list-item input[type=checkbox]{margin:0 .2em .25em -1.6em;}"
-        html += "</style></head><body>"
+        html += "</head><body>"
         html += "<article class='markdown-body'>"
         html += renderedHTML
         html += "</article>"
@@ -91,7 +84,7 @@ enum MarkdownRenderer {
 
     // MARK: - Private
 
-    private static let cssFiles = ["github-markdown", "github.min", "katex.min"]
+    private static let cssFiles = ["github-markdown", "github.min", "katex.min", "custom"]
     private static let resourceCache = OSAllocatedUnfairLock<[String: String]>(initialState: [:])
 
     private static func readBundleResource(_ name: String, _ ext: String, bundle: Bundle) -> String {
