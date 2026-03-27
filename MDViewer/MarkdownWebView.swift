@@ -105,6 +105,14 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
 
     // MARK: - WKNavigationDelegate
 
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
+        if navigationAction.navigationType == .linkActivated, let url = navigationAction.request.url {
+            NSWorkspace.shared.open(url)
+            return .cancel
+        }
+        return .allow
+    }
+
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         // Template loaded — WebView is ready
         isReady = true
