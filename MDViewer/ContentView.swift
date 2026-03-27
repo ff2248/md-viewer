@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ContentView: View {
-    @ObservedObject var appState: AppState
+    var appState: AppState
     @State private var headings: [Heading] = []
     @State private var selectedHeadingID: String?
     @State private var sidebarWidth: CGFloat = 240
@@ -24,7 +24,7 @@ struct ContentView: View {
             .onAppear {
                 webProxy.onHeadingsLoaded = { self.headings = $0 }
             }
-            .onChange(of: appState.markdown) { _ in
+            .onChange(of: appState.markdown) {
                 headings = []
                 selectedHeadingID = nil
             }
@@ -38,10 +38,10 @@ struct ContentView: View {
         VStack(spacing: 12) {
             Text("Drop a .md file here")
                 .font(.title2)
-                .foregroundColor(.secondary)
+                .foregroundStyle(.secondary)
             Text("or press ⌘O to open")
                 .font(.body)
-                .foregroundColor(.secondary)
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -53,13 +53,13 @@ struct ContentView: View {
             HStack {
                 Text("Contents")
                     .font(.headline)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
                 Spacer()
                 Button {
                     withAnimation { appState.showSidebar = false }
                 } label: {
                     Image(systemName: "sidebar.left")
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
             }
@@ -83,8 +83,8 @@ struct ContentView: View {
         .overlay(alignment: .trailing) {
             sidebarResizeHandle
         }
-        .onChange(of: selectedHeadingID) { id in
-            if let id = id {
+        .onChange(of: selectedHeadingID) { _, newValue in
+            if let id = newValue {
                 webProxy.scrollToHeading(id)
             }
         }
@@ -116,9 +116,9 @@ struct ContentView: View {
 
     private func fontForLevel(_ level: Int) -> Font {
         switch level {
-        case 1: return .headline
-        case 2: return .subheadline
-        default: return .body
+        case 1: .headline
+        case 2: .subheadline
+        default: .body
         }
     }
 }

@@ -1,7 +1,7 @@
 import Cocoa
-import QuickLookUI
+@preconcurrency import QuickLookUI
 
-class PreviewViewController: NSViewController, QLPreviewingController {
+class PreviewViewController: NSViewController, @preconcurrency QLPreviewingController {
 
     func providePreview(for request: QLFilePreviewRequest) async throws -> QLPreviewReply {
         let fileURL = request.fileURL

@@ -26,6 +26,7 @@
 		4985E46D9A2F890B4EBB8E1D /* MarkdownWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 017AEC17777962CB26EED41A /* MarkdownWebView.swift */; };
 		4BEE7483C0685E2D8DCAEC84 /* KaTeX_Main-Regular.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = 8ACE5B9DC3EA2EADC849D671 /* KaTeX_Main-Regular.woff2 */; };
 		508B443721C9D9DE44278F25 /* katex.min.js in Resources */ = {isa = PBXBuildFile; fileRef = D950C0C5E694E83DC1EE66C8 /* katex.min.js */; };
+		50BA21FD6FF45BAE97EAF6DB /* JSContextCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0737D47A91425A4951EFEC59 /* JSContextCache.swift */; };
 		5A6684FB8934972510698915 /* PreviewViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EDCEBE75C99AEC98D3A0084 /* PreviewViewController.swift */; };
 		5AFE6973D646AC37922F1CD5 /* github-markdown.css in Resources */ = {isa = PBXBuildFile; fileRef = 2399490BA0950C03B8F5D8D0 /* github-markdown.css */; };
 		5FD62C8BAD4F059777FDE297 /* StringExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CE8740BC46F4F294D68EAEF /* StringExtensions.swift */; };
@@ -47,6 +48,7 @@
 		9DF16C7637D3CE88CAC74DC9 /* KaTeX_Fraktur-Regular.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = DA928CF799B6D5B2DB220CF3 /* KaTeX_Fraktur-Regular.woff2 */; };
 		A13993860A55915B927F503D /* KaTeX_Fraktur-Bold.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = 40199D265A95263772A60DFE /* KaTeX_Fraktur-Bold.woff2 */; };
 		A5F10CA257CEDBD11654DCD6 /* KaTeXRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 905493DC22FF311342C326C5 /* KaTeXRenderer.swift */; };
+		ADF8975B5921440B8956D638 /* JSContextCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0737D47A91425A4951EFEC59 /* JSContextCache.swift */; };
 		AED68FF21AF8EDC2152F3DC2 /* template.html in Resources */ = {isa = PBXBuildFile; fileRef = FBE61B98AB028969A77E50C2 /* template.html */; };
 		AFF0B47EC5A5D822C7D46357 /* mermaid.min.js in Resources */ = {isa = PBXBuildFile; fileRef = EEAD9AE7E7949E68E898870B /* mermaid.min.js */; };
 		B27F8120920F408AA2699876 /* KaTeX_SansSerif-Italic.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = A91CDA99FBB318E8A7C3A8E7 /* KaTeX_SansSerif-Italic.woff2 */; };
@@ -117,6 +119,7 @@
 		0156BF9B3F2C1DE237234673 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		017AEC17777962CB26EED41A /* MarkdownWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownWebView.swift; sourceTree = "<group>"; };
 		04C5E3A11151351F3EF8190F /* KaTeX_Main-BoldItalic.woff2 */ = {isa = PBXFileReference; path = "KaTeX_Main-BoldItalic.woff2"; sourceTree = "<group>"; };
+		0737D47A91425A4951EFEC59 /* JSContextCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSContextCache.swift; sourceTree = "<group>"; };
 		0788C13EE4E17BECA4F49426 /* KaTeX_Script-Regular.woff2 */ = {isa = PBXFileReference; path = "KaTeX_Script-Regular.woff2"; sourceTree = "<group>"; };
 		0822AD4EF3C8C9D1821F611C /* KaTeX_Size3-Regular.woff2 */ = {isa = PBXFileReference; path = "KaTeX_Size3-Regular.woff2"; sourceTree = "<group>"; };
 		18BA6266A8053F90D86BDE00 /* KaTeX_AMS-Regular.woff2 */ = {isa = PBXFileReference; path = "KaTeX_AMS-Regular.woff2"; sourceTree = "<group>"; };
@@ -240,6 +243,7 @@
 			isa = PBXGroup;
 			children = (
 				F0A94C13E999AC91F3AC53C2 /* HighlightRenderer.swift */,
+				0737D47A91425A4951EFEC59 /* JSContextCache.swift */,
 				905493DC22FF311342C326C5 /* KaTeXRenderer.swift */,
 				736CEF3E29239C2D78CC0EE8 /* MarkdownParser.swift */,
 				EA5A276D30F402066E0E211C /* MarkdownRenderer.swift */,
@@ -472,6 +476,7 @@
 			files = (
 				014481C4A0C17851A6409723 /* ContentView.swift in Sources */,
 				9281354FFECADB6B98201658 /* HighlightRenderer.swift in Sources */,
+				ADF8975B5921440B8956D638 /* JSContextCache.swift in Sources */,
 				2F9F3226FA6FE3B64E5DDD05 /* KaTeXRenderer.swift in Sources */,
 				427D880BBE37004B9607D1EE /* MDViewerApp.swift in Sources */,
 				889A3EC0855B826C283574EE /* MarkdownParser.swift in Sources */,
@@ -486,6 +491,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				9B7ABB85AF9D071BF41596F2 /* HighlightRenderer.swift in Sources */,
+				50BA21FD6FF45BAE97EAF6DB /* JSContextCache.swift in Sources */,
 				A5F10CA257CEDBD11654DCD6 /* KaTeXRenderer.swift in Sources */,
 				E5BB0CC5EB8AD2108B0B64DD /* MarkdownParser.swift in Sources */,
 				C16FAF59773E9A3C347366BC /* MarkdownRenderer.swift in Sources */,
@@ -563,14 +569,14 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
-				SWIFT_VERSION = 5.9;
+				SWIFT_VERSION = 6;
 			};
 			name = Release;
 		};
@@ -684,7 +690,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -692,7 +698,7 @@
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SWIFT_VERSION = 5.9;
+				SWIFT_VERSION = 6;
 			};
 			name = Debug;
 		};

@@ -1,5 +1,4 @@
 import Foundation
-import JavaScriptCore
 
 /// Pre-renders syntax highlighting via highlight.js in JavaScriptCore.
 ///
@@ -10,7 +9,7 @@ enum HighlightRenderer {
 
     static func highlight(in html: String, bundle: Bundle = .main) -> String {
         guard html.contains("<code") else { return html }
-        guard let ctx = makeContext(bundle: bundle) else { return html }
+        guard let ctx = cache.context(bundle: bundle) else { return html }
 
         let nsHTML = html as NSString
         let matches = Self.codeBlockRegex.matches(in: html, range: NSRange(location: 0, length: nsHTML.length))
@@ -47,26 +46,14 @@ enum HighlightRenderer {
 
     // MARK: - Private
 
-    private static var cachedContext: JSContext?
+    private static let cache = JSContextCache(
+        resource: "highlight.min",
+        setup: "var module = undefined; var exports = undefined;",
+        globalName: "hljs"
+    )
 
     private static let codeBlockRegex = try! NSRegularExpression(
         pattern: "<pre><code class=\"language-([^\"]+)\">([\\s\\S]*?)</code></pre>",
         options: []
     )
-
-    private static func makeContext(bundle: Bundle) -> JSContext? {
-        if let cached = cachedContext { return cached }
-
-        guard let hljsURL = bundle.url(forResource: "highlight.min", withExtension: "js"),
-              let hljsJS = try? String(contentsOf: hljsURL, encoding: .utf8) else { return nil }
-
-        let ctx = JSContext()!
-        ctx.evaluateScript("var self = this; var window = this; var module = undefined; var exports = undefined;")
-        ctx.evaluateScript(hljsJS)
-        ctx.evaluateScript("if(typeof hljs==='undefined' && typeof window.hljs!=='undefined') { var hljs=window.hljs; }")
-        guard let test = ctx.evaluateScript("typeof hljs"), test.toString() == "object" else { return nil }
-
-        cachedContext = ctx
-        return ctx
-    }
 }

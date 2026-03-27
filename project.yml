@@ -2,13 +2,13 @@ name: MDViewer
 options:
   bundleIdPrefix: com.local
   deploymentTarget:
-    macOS: "13.0"
+    macOS: "14.0"
   xcodeVersion: "16.0"
   generateEmptyDirectories: true
 
 settings:
   base:
-    SWIFT_VERSION: "5.9"
+    SWIFT_VERSION: "6"
 
 packages:
   swift-cmark-gfm:

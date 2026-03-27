@@ -8,7 +8,7 @@ extension UTType {
 @main
 struct MDViewerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    @StateObject private var appState = AppState()
+    @State private var appState = AppState()
     @FocusedValue(\.webViewProxy) private var webProxy
 
     var body: some Scene {
@@ -22,7 +22,7 @@ struct MDViewerApp: App {
                     guard let provider = providers.first else { return false }
                     _ = provider.loadObject(ofClass: URL.self) { url, _ in
                         guard let url = url else { return }
-                        DispatchQueue.main.async { appState.openFile(url) }
+                        Task { @MainActor in appState.openFile(url) }
                     }
                     return true
                 }
@@ -60,17 +60,17 @@ struct MDViewerApp: App {
 // MARK: - App Delegate
 
 class AppDelegate: NSObject, NSApplicationDelegate {
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        return true
-    }
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 }
 
 // MARK: - App State
 
-class AppState: ObservableObject {
-    @Published var markdown = ""
-    @Published var windowTitle = "MDViewer"
-    @Published var showSidebar = true
+@MainActor
+@Observable
+class AppState {
+    var markdown = ""
+    var windowTitle = "MDViewer"
+    var showSidebar = true
 
     init() {
         if let path = ProcessInfo.processInfo.arguments.dropFirst().first {
@@ -87,9 +87,7 @@ class AppState: ObservableObject {
             markdown = ""
             windowTitle = "MDViewer"
         }
-        DispatchQueue.main.async {
-            NSApplication.shared.mainWindow?.title = self.windowTitle
-        }
+        NSApplication.shared.mainWindow?.title = windowTitle
     }
 
     func showOpenPanel() {

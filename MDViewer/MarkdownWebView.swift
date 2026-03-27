@@ -2,7 +2,7 @@ import SwiftUI
 import WebKit
 
 /// A heading extracted from rendered Markdown, used for TOC sidebar navigation.
-struct Heading: Identifiable, Equatable {
+struct Heading: Identifiable, Equatable, Sendable {
     let id: String
     let level: Int
     let text: String
@@ -48,7 +48,7 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
         }
 
         // 2. Pre-warm JSContexts in background (so they're ready when user opens a file)
-        DispatchQueue.global(qos: .userInitiated).async {
+        Task.detached(priority: .userInitiated) {
             _ = HighlightRenderer.highlight(in: "<pre><code class=\"language-js\">x</code></pre>", bundle: bundle)
             _ = KaTeXRenderer.renderMath(in: "<p>$x$</p>", bundle: bundle)
         }
@@ -66,8 +66,21 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
 
         let config = WKPDFConfiguration()
         webView.createPDF(configuration: config) { result in
-            if case .success(let data) = result {
-                try? data.write(to: url)
+            switch result {
+            case .success(let data):
+                do {
+                    try data.write(to: url)
+                } catch {
+                    Task { @MainActor in
+                        let alert = NSAlert(error: error)
+                        alert.runModal()
+                    }
+                }
+            case .failure(let error):
+                Task { @MainActor in
+                    let alert = NSAlert(error: error)
+                    alert.runModal()
+                }
             }
         }
     }
@@ -93,7 +106,7 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
     // MARK: - WKNavigationDelegate
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        // Template loaded — WebView is ready (no JS libraries to inject anymore)
+        // Template loaded — WebView is ready
         isReady = true
         if let md = pendingMarkdown {
             injectMarkdown(md)
@@ -113,7 +126,7 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
                   let text = item["text"] as? String else { return nil }
             return Heading(id: id, level: level, text: text)
         }
-        DispatchQueue.main.async {
+        Task { @MainActor in
             self.onHeadingsLoaded?(headings)
         }
     }
@@ -129,15 +142,10 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
     }
 
     private func injectMarkdown(_ markdown: String) {
-        // All rendering in Swift — WKWebView just displays the result
-        var html = MarkdownParser.toHTML(markdown, unsafe: true)
-        html = HighlightRenderer.highlight(in: html, bundle: bundle)
-        html = KaTeXRenderer.renderMath(in: html, bundle: bundle)
-
+        let html = MarkdownRenderer.renderToHTML(markdown, bundle: bundle)
         let base64 = Data(html.utf8).base64EncodedString()
 
-        // Mermaid still needs browser JS (requires DOM)
-        let hasMermaid = markdown.contains("```mermaid")
+        let hasMermaid = MarkdownRenderer.hasMermaid(markdown)
         if hasMermaid && !mermaidInjected, let js = mermaidJS {
             webView.evaluateJavaScript(js) { [weak self] _, _ in
                 self?.mermaidInjected = true

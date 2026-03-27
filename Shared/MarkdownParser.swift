@@ -33,8 +33,7 @@ enum MarkdownParser {
         guard let endRange = text.range(of: "\n---", range: startIndex..<text.endIndex) else {
             return text
         }
-        let afterFrontMatter = text.index(endRange.upperBound, offsetBy: 0)
-        return String(text[afterFrontMatter...]).trimmingCharacters(in: .newlines)
+        return String(text[endRange.upperBound...]).trimmingCharacters(in: .newlines)
     }
 
     /// Replaces `:shortcode:` emoji patterns with their Unicode equivalents.

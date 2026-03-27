@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 enum MarkdownRenderer {
 
@@ -14,21 +15,31 @@ enum MarkdownRenderer {
         }
     }
 
+    // MARK: - Rendering
+
+    /// Renders Markdown to HTML via cmark-gfm, highlight.js, and KaTeX.
+    static func renderToHTML(_ markdown: String, bundle: Bundle) -> String {
+        var html = MarkdownParser.toHTML(markdown, unsafe: true)
+        html = HighlightRenderer.highlight(in: html, bundle: bundle)
+        html = KaTeXRenderer.renderMath(in: html, bundle: bundle)
+        return html
+    }
+
+    /// Whether the Markdown contains Mermaid diagram blocks.
+    static func hasMermaid(_ markdown: String) -> Bool {
+        markdown.contains("```mermaid")
+    }
+
     // MARK: - HTML Generation
 
     /// Returns a simple error page.
     static func errorHTML(message: String) -> String {
-        let escaped = message
-            .replacingOccurrences(of: "&", with: "&amp;")
-            .replacingOccurrences(of: "<", with: "&lt;")
-            .replacingOccurrences(of: ">", with: "&gt;")
-            .replacingOccurrences(of: "\"", with: "&quot;")
-        return """
+        """
         <!DOCTYPE html>
         <html>
         <body style="font-family: -apple-system; padding: 40px; color: #666;">
             <h2>Cannot Open File</h2>
-            <p>\(escaped)</p>
+            <p>\(message.htmlEscaped)</p>
         </body>
         </html>
         """
@@ -44,9 +55,7 @@ enum MarkdownRenderer {
     /// Uses string concatenation (not interpolation) because JS files
     /// contain `\(` which would break Swift string interpolation.
     static func buildSelfContainedHTML(markdown: String, bundle: Bundle) -> String {
-        var renderedHTML = MarkdownParser.toHTML(markdown, unsafe: true)
-        renderedHTML = HighlightRenderer.highlight(in: renderedHTML, bundle: bundle)
-        renderedHTML = KaTeXRenderer.renderMath(in: renderedHTML, bundle: bundle)
+        let renderedHTML = renderToHTML(markdown, bundle: bundle)
 
         var html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
 
@@ -65,7 +74,7 @@ enum MarkdownRenderer {
         html += renderedHTML
         html += "</article>"
 
-        if markdown.contains("```mermaid") {
+        if hasMermaid(markdown) {
             html += "<script>" + readBundleResource("mermaid.min", "js", bundle: bundle) + "</script>"
             html += "<script>"
             html += "document.querySelectorAll('pre code.language-mermaid').forEach(function(cb){"
@@ -83,14 +92,16 @@ enum MarkdownRenderer {
     // MARK: - Private
 
     private static let cssFiles = ["github-markdown", "github.min", "katex.min"]
-    private static var resourceCache: [String: String] = [:]
+    private static let resourceCache = OSAllocatedUnfairLock<[String: String]>(initialState: [:])
 
     private static func readBundleResource(_ name: String, _ ext: String, bundle: Bundle) -> String {
         let key = "\(name).\(ext)"
-        if let cached = resourceCache[key] { return cached }
-        guard let url = bundle.url(forResource: name, withExtension: ext),
-              let content = try? String(contentsOf: url, encoding: .utf8) else { return "" }
-        resourceCache[key] = content
-        return content
+        return resourceCache.withLock { cache in
+            if let cached = cache[key] { return cached }
+            guard let url = bundle.url(forResource: name, withExtension: ext),
+                  let content = try? String(contentsOf: url, encoding: .utf8) else { return "" }
+            cache[key] = content
+            return content
+        }
     }
 }
