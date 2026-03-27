@@ -58,6 +58,30 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
         webView.evaluateJavaScript("scrollToHeading('\(id)');") { _, _ in }
     }
 
+    func exportPDF(title: String) {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.pdf]
+        panel.nameFieldStringValue = title.replacingOccurrences(of: ".md", with: ".pdf")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        let config = WKPDFConfiguration()
+        webView.createPDF(configuration: config) { result in
+            if case .success(let data) = result {
+                try? data.write(to: url)
+            }
+        }
+    }
+
+    func printContent() {
+        let printInfo = NSPrintInfo.shared.copy() as! NSPrintInfo
+        printInfo.isHorizontallyCentered = true
+        printInfo.isVerticallyCentered = false
+        let op = webView.printOperation(with: printInfo)
+        op.showsPrintPanel = true
+        op.showsProgressPanel = true
+        op.run()
+    }
+
     func render(markdown: String) {
         guard markdown != lastRendered else { return }
         pendingMarkdown = markdown
@@ -125,6 +149,17 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
 
         lastRendered = markdown
         pendingMarkdown = nil
+    }
+}
+
+struct WebViewProxyKey: FocusedValueKey {
+    typealias Value = WebViewProxy
+}
+
+extension FocusedValues {
+    var webViewProxy: WebViewProxy? {
+        get { self[WebViewProxyKey.self] }
+        set { self[WebViewProxyKey.self] = newValue }
     }
 }
 

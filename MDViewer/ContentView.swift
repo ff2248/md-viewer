@@ -28,6 +28,7 @@ struct ContentView: View {
                 headings = []
                 selectedHeadingID = nil
             }
+            .focusedSceneValue(\.webViewProxy, webProxy)
         }
     }
 

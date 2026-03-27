@@ -9,6 +9,7 @@ extension UTType {
 struct MDViewerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var appState = AppState()
+    @FocusedValue(\.webViewProxy) private var webProxy
 
     var body: some Scene {
         WindowGroup {
@@ -31,6 +32,20 @@ struct MDViewerApp: App {
             CommandGroup(replacing: .newItem) {
                 Button("Open...") { appState.showOpenPanel() }
                     .keyboardShortcut("o")
+
+                Divider()
+
+                Button("Export as PDF...") {
+                    webProxy?.exportPDF(title: appState.windowTitle)
+                }
+                .keyboardShortcut("e")
+                .disabled(webProxy == nil || appState.markdown.isEmpty)
+
+                Button("Print...") {
+                    webProxy?.printContent()
+                }
+                .keyboardShortcut("p")
+                .disabled(webProxy == nil || appState.markdown.isEmpty)
             }
             CommandGroup(after: .sidebar) {
                 Button(appState.showSidebar ? "Hide Sidebar" : "Show Sidebar") {
