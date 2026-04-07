@@ -25,11 +25,16 @@ struct ContentView: View {
             .onAppear {
                 webProxy.onHeadingsLoaded = { self.headings = $0 }
                 webProxy.fileURL = appState.fileURL
+                webProxy.hardBreaks = appState.hardBreaks
                 webProxy.bodyFontSize = appState.bodyFontSize
                 webProxy.codeFontSize = appState.codeFontSize
             }
             .onChange(of: appState.fileURL) {
                 webProxy.fileURL = appState.fileURL
+            }
+            .onChange(of: appState.hardBreaks) {
+                webProxy.hardBreaks = appState.hardBreaks
+                webProxy.forceRerender(markdown: appState.markdown)
             }
             .onChange(of: appState.bodyFontSize) {
                 webProxy.bodyFontSize = appState.bodyFontSize

@@ -71,6 +71,7 @@ struct MDViewerApp: App {
 
 private struct SettingsView: View {
     @AppStorage("appearance") private var appearance = "auto"
+    @AppStorage("hardBreaks") private var hardBreaks = true
     @AppStorage("bodyFontSize") private var bodyFontSize = 16.0
     @AppStorage("codeFontSize") private var codeFontSize = 13.0
 
@@ -81,6 +82,8 @@ private struct SettingsView: View {
                 Text("Light").tag("light")
                 Text("Dark").tag("dark")
             }
+
+            Toggle("Single newline as line break", isOn: $hardBreaks)
 
             LabeledContent("Body Font Size") {
                 HStack {
@@ -126,6 +129,7 @@ class AppState {
     var fileURL: URL?
     var windowTitle = "MDViewer"
     var showSidebar = true
+    var hardBreaks: Bool = true
     var bodyFontSize: Double = 16
     var codeFontSize: Double = 13
 
@@ -134,6 +138,9 @@ class AppState {
 
     init() {
         let defaults = UserDefaults.standard
+        if defaults.object(forKey: "hardBreaks") != nil {
+            hardBreaks = defaults.bool(forKey: "hardBreaks")
+        }
         let savedBody = defaults.double(forKey: "bodyFontSize")
         if savedBody > 0 { bodyFontSize = savedBody }
         let savedCode = defaults.double(forKey: "codeFontSize")
@@ -147,6 +154,9 @@ class AppState {
         ) { [weak self] _ in
             guard let self else { return }
             let d = UserDefaults.standard
+            if d.object(forKey: "hardBreaks") != nil {
+                self.hardBreaks = d.bool(forKey: "hardBreaks")
+            }
             let newBody = d.double(forKey: "bodyFontSize")
             if newBody > 0 { self.bodyFontSize = newBody }
             let newCode = d.double(forKey: "codeFontSize")
@@ -190,12 +200,18 @@ class AppState {
         guard fd >= 0 else { return }
 
         let source = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: fd, eventMask: [.write, .rename], queue: .main
+            fileDescriptor: fd, eventMask: [.write, .rename, .delete], queue: .main
         )
         source.setEventHandler { [weak self] in
             guard let self else { return }
-            if case .success(let text) = MarkdownRenderer.readMarkdownFile(at: url) {
-                self.markdown = text
+            // Small delay — editors may still be writing
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                if case .success(let text) = MarkdownRenderer.readMarkdownFile(at: url) {
+                    self.markdown = text
+                }
+                // Re-watch: editors often write-to-temp + rename,
+                // which replaces the inode and invalidates this watcher
+                self.watchFile(url)
             }
         }
         source.setCancelHandler { close(fd) }

@@ -16,12 +16,12 @@ enum MarkdownParser {
     ///             Dangerous tags are still filtered by GFM tagfilter.
     ///             If `false`, all raw HTML is stripped. Default is `false`.
     /// - Returns: Rendered HTML string.
-    static func toHTML(_ markdown: String, unsafe: Bool = false) -> String {
+    static func toHTML(_ markdown: String, unsafe: Bool = false, hardBreaks: Bool = false) -> String {
         var text = markdown
         text = stripFrontMatter(text)
         text = replaceMathCodeBlocks(text)
         text = replaceEmojiShortcodes(text)
-        return cmarkToHTML(text, unsafe: unsafe)
+        return cmarkToHTML(text, unsafe: unsafe, hardBreaks: hardBreaks)
     }
 
     // MARK: - Pre-processing
@@ -61,11 +61,12 @@ enum MarkdownParser {
 
     // MARK: - cmark-gfm
 
-    private static func cmarkToHTML(_ text: String, unsafe: Bool) -> String {
+    private static func cmarkToHTML(_ text: String, unsafe: Bool, hardBreaks: Bool) -> String {
         cmark_gfm_core_extensions_ensure_registered()
 
         var options: Int32 = CMARK_OPT_FOOTNOTES
         if unsafe { options |= CMARK_OPT_UNSAFE }
+        if hardBreaks { options |= CMARK_OPT_HARDBREAKS }
 
         guard let parser = cmark_parser_new(options) else { return "" }
         defer { cmark_parser_free(parser) }
