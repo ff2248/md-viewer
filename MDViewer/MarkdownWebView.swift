@@ -106,11 +106,17 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
     // MARK: - WKNavigationDelegate
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
-        if navigationAction.navigationType == .linkActivated, let url = navigationAction.request.url {
-            NSWorkspace.shared.open(url)
-            return .cancel
+        guard navigationAction.navigationType == .linkActivated,
+              let url = navigationAction.request.url else { return .allow }
+
+        // In-page anchor links (e.g. footnotes) — handle within the WebView
+        if url.fragment != nil && url.scheme == "file" {
+            return .allow
         }
-        return .allow
+
+        // External links — open in default browser
+        NSWorkspace.shared.open(url)
+        return .cancel
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {

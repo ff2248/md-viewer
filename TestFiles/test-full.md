@@ -239,6 +239,28 @@ Markdown 是一種輕量級標記語言，由 John Gruber 於 2004 年創建。G
 
 中日韓混合：**繁體中文**、日文（こんにちは）、韓文（안녕하세요）。
 
+## 腳註（Footnotes）
+
+Markdown 是由 John Gruber 創建的輕量級標記語言[^1]，而 GitHub Flavored Markdown 是 GitHub 的擴充版本[^gfm]。
+
+MDViewer 使用 cmark-gfm 解析器[^cmark]，確保渲染結果一致。
+
+[^1]: John Gruber 於 2004 年發布了 Markdown 的第一個版本。
+[^gfm]: GFM 增加了表格、任務清單、刪除線、自動連結等功能。
+[^cmark]: cmark-gfm 是 GitHub 維護的 CommonMark 實作，以 C 語言撰寫。
+
+## Math Code Block
+
+GitHub 支援 ` ```math ` 語法來撰寫區塊數學公式：
+
+```math
+\int_{0}^{\infty} e^{-x^2} dx = \frac{\sqrt{\pi}}{2}
+```
+
+```math
+\sum_{k=0}^{n} \binom{n}{k} = 2^n
+```
+
 ---
 
 *測試完畢。*

@@ -19,6 +19,7 @@ enum MarkdownParser {
     static func toHTML(_ markdown: String, unsafe: Bool = false) -> String {
         var text = markdown
         text = stripFrontMatter(text)
+        text = replaceMathCodeBlocks(text)
         text = replaceEmojiShortcodes(text)
         return cmarkToHTML(text, unsafe: unsafe)
     }
@@ -35,6 +36,16 @@ enum MarkdownParser {
         }
         return String(text[endRange.upperBound...]).trimmingCharacters(in: .newlines)
     }
+
+    /// Converts ` ```math ` code blocks to `$$...$$` so KaTeX can render them.
+    static func replaceMathCodeBlocks(_ text: String) -> String {
+        guard text.contains("```math") else { return text }
+        return text.replacing(mathCodeBlockRegex) { match in
+            "$$\n\(match.output.1)\n$$"
+        }
+    }
+
+    nonisolated(unsafe) private static let mathCodeBlockRegex = /```math\n([\s\S]*?)```/
 
     /// Replaces `:shortcode:` emoji patterns with their Unicode equivalents.
     /// Uses single regex scan + dictionary lookup instead of iterating all entries.
@@ -53,7 +64,8 @@ enum MarkdownParser {
     private static func cmarkToHTML(_ text: String, unsafe: Bool) -> String {
         cmark_gfm_core_extensions_ensure_registered()
 
-        let options: Int32 = unsafe ? CMARK_OPT_UNSAFE : 0
+        var options: Int32 = CMARK_OPT_FOOTNOTES
+        if unsafe { options |= CMARK_OPT_UNSAFE }
 
         guard let parser = cmark_parser_new(options) else { return "" }
         defer { cmark_parser_free(parser) }
