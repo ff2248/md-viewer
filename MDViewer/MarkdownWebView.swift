@@ -58,6 +58,21 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
         webView.evaluateJavaScript("scrollToHeading('\(id)');") { _, _ in }
     }
 
+    func exportHTML(markdown: String, title: String) {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.html]
+        panel.nameFieldStringValue = title.replacingOccurrences(of: ".md", with: ".html")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        let html = MarkdownRenderer.buildSelfContainedHTML(markdown: markdown, bundle: bundle)
+        do {
+            try html.write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            let alert = NSAlert(error: error)
+            alert.runModal()
+        }
+    }
+
     func exportPDF(title: String) {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.pdf]
@@ -155,8 +170,13 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
         return content
     }
 
+    var fileURL: URL?
+
     private func injectMarkdown(_ markdown: String) {
-        let html = MarkdownRenderer.renderToHTML(markdown, bundle: bundle)
+        var html = MarkdownRenderer.renderToHTML(markdown, bundle: bundle)
+        if let fileURL {
+            html = MarkdownRenderer.inlineLocalImages(in: html, relativeTo: fileURL)
+        }
         let base64 = Data(html.utf8).base64EncodedString()
 
         let hasMermaid = MarkdownRenderer.hasMermaid(markdown)

@@ -9,6 +9,17 @@ tags: [markdown, test, 繁體中文]
 
 這份文件用來測試 MDViewer 的所有 Markdown 渲染功能。
 
+## 目錄（Heading Anchor 測試）
+
+以下連結應可點擊跳轉至對應段落：
+
+- [標題層級](#標題層級)
+- [程式碼區塊](#程式碼區塊)
+- [數學公式](#數學公式)
+- [Mermaid 圖表](#mermaid-圖表)
+- [腳註](#腳註footnotes)
+- [本地圖片](#本地圖片)
+
 ## 標題層級
 
 # 標題 1（H1）
@@ -232,6 +243,12 @@ sequenceDiagram
 <div style="padding: 16px; background: #f0f7ff; border-left: 4px solid #0366d6; border-radius: 4px;">
 💡 <strong>提示：</strong>MDViewer 使用 tagfilter 自動過濾危險 HTML 標籤。
 </div>
+
+## 本地圖片
+
+以下圖片使用相對路徑引用，Quick Look 預覽中應正常顯示（base64 內嵌）：
+
+![App Icon](../docs/icon.png)
 
 ## 繁體中文測試
 

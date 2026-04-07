@@ -24,6 +24,10 @@ struct ContentView: View {
             .ignoresSafeArea()
             .onAppear {
                 webProxy.onHeadingsLoaded = { self.headings = $0 }
+                webProxy.fileURL = appState.fileURL
+            }
+            .onChange(of: appState.fileURL) {
+                webProxy.fileURL = appState.fileURL
             }
             .onChange(of: appState.markdown) {
                 headings = []

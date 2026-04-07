@@ -10,7 +10,7 @@ class PreviewViewController: NSViewController, @preconcurrency QLPreviewingContr
         let html: String
         switch MarkdownRenderer.readMarkdownFile(at: fileURL) {
         case .success(let markdown):
-            html = MarkdownRenderer.buildSelfContainedHTML(markdown: markdown, bundle: bundle)
+            html = MarkdownRenderer.buildSelfContainedHTML(markdown: markdown, bundle: bundle, baseURL: fileURL)
         case .failure(let error):
             html = MarkdownRenderer.errorHTML(message: error.localizedDescription)
         }

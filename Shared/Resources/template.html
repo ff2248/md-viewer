@@ -44,10 +44,19 @@
             }
         }
 
+        function slugify(text) {
+            return text.toLowerCase().trim()
+                .replace(/[^\w\s\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af-]/g, '')
+                .replace(/\s+/g, '-');
+        }
+
         function extractHeadings() {
             var headings = [];
-            document.getElementById('content').querySelectorAll('h1,h2,h3,h4,h5,h6').forEach(function(el, i) {
-                var id = 'heading-' + i;
+            var slugCounts = {};
+            document.getElementById('content').querySelectorAll('h1,h2,h3,h4,h5,h6').forEach(function(el) {
+                var slug = slugify(el.textContent);
+                slugCounts[slug] = (slugCounts[slug] || 0) + 1;
+                var id = slugCounts[slug] > 1 ? slug + '-' + (slugCounts[slug] - 1) : slug;
                 el.id = id;
                 headings.push({ id: id, level: parseInt(el.tagName.charAt(1)), text: el.textContent });
             });

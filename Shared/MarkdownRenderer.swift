@@ -54,8 +54,11 @@ enum MarkdownRenderer {
     ///
     /// Uses string concatenation (not interpolation) because JS files
     /// contain `\(` which would break Swift string interpolation.
-    static func buildSelfContainedHTML(markdown: String, bundle: Bundle) -> String {
-        let renderedHTML = renderToHTML(markdown, bundle: bundle)
+    static func buildSelfContainedHTML(markdown: String, bundle: Bundle, baseURL: URL? = nil) -> String {
+        var renderedHTML = renderToHTML(markdown, bundle: bundle)
+        if let baseURL = baseURL {
+            renderedHTML = inlineLocalImages(in: renderedHTML, relativeTo: baseURL)
+        }
 
         var html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
 
@@ -83,6 +86,33 @@ enum MarkdownRenderer {
     }
 
     // MARK: - Private
+
+    /// Replace local image src with base64 data URIs for self-contained HTML.
+    static func inlineLocalImages(in html: String, relativeTo baseURL: URL) -> String {
+        let dir = baseURL.deletingLastPathComponent()
+        return html.replacing(imgSrcRegex) { match in
+            let src = String(match.output.1)
+            // Skip URLs and data URIs
+            if src.hasPrefix("http://") || src.hasPrefix("https://") || src.hasPrefix("data:") {
+                return String(match.output.0)
+            }
+            let fileURL = dir.appendingPathComponent(src)
+            guard let data = try? Data(contentsOf: fileURL) else { return String(match.output.0) }
+            let mime: String
+            switch fileURL.pathExtension.lowercased() {
+            case "png": mime = "image/png"
+            case "jpg", "jpeg": mime = "image/jpeg"
+            case "gif": mime = "image/gif"
+            case "svg": mime = "image/svg+xml"
+            case "webp": mime = "image/webp"
+            default: mime = "application/octet-stream"
+            }
+            let b64 = data.base64EncodedString()
+            return "src=\"data:\(mime);base64,\(b64)\""
+        }
+    }
+
+    nonisolated(unsafe) private static let imgSrcRegex = /src="([^"]+)"/
 
     private static let cssFiles = ["github-markdown", "github.min", "katex.min", "custom"]
     private static let resourceCache = OSAllocatedUnfairLock<[String: String]>(initialState: [:])

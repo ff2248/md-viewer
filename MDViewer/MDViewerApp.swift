@@ -41,6 +41,12 @@ struct MDViewerApp: App {
                 .keyboardShortcut("e")
                 .disabled(webProxy == nil || appState.markdown.isEmpty)
 
+                Button("Export as HTML...") {
+                    webProxy?.exportHTML(markdown: appState.markdown, title: appState.windowTitle)
+                }
+                .keyboardShortcut("e", modifiers: [.command, .shift])
+                .disabled(webProxy == nil || appState.markdown.isEmpty)
+
                 Button("Print...") {
                     webProxy?.printContent()
                 }
@@ -69,6 +75,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 @Observable
 class AppState {
     var markdown = ""
+    var fileURL: URL?
     var windowTitle = "MDViewer"
     var showSidebar = true
 
@@ -82,9 +89,11 @@ class AppState {
         switch MarkdownRenderer.readMarkdownFile(at: url) {
         case .success(let text):
             markdown = text
+            fileURL = url
             windowTitle = url.lastPathComponent
         case .failure:
             markdown = ""
+            fileURL = nil
             windowTitle = "MDViewer"
         }
         NSApplication.shared.mainWindow?.title = windowTitle
