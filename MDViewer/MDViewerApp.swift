@@ -130,6 +130,7 @@ class AppState {
     var codeFontSize: Double = 13
 
     private var defaultsObserver: Any?
+    private var fileWatcher: DispatchSourceFileSystemObject?
 
     init() {
         let defaults = UserDefaults.standard
@@ -178,6 +179,28 @@ class AppState {
             windowTitle = "MDViewer"
         }
         NSApplication.shared.mainWindow?.title = windowTitle
+        watchFile(url)
+    }
+
+    private func watchFile(_ url: URL) {
+        fileWatcher?.cancel()
+        fileWatcher = nil
+
+        let fd = open(url.path, O_EVTONLY)
+        guard fd >= 0 else { return }
+
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fd, eventMask: [.write, .rename], queue: .main
+        )
+        source.setEventHandler { [weak self] in
+            guard let self else { return }
+            if case .success(let text) = MarkdownRenderer.readMarkdownFile(at: url) {
+                self.markdown = text
+            }
+        }
+        source.setCancelHandler { close(fd) }
+        source.resume()
+        fileWatcher = source
     }
 
     func showOpenPanel() {
