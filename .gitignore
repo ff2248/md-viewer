@@ -39,3 +39,4 @@ docs/internal/
 # Temporary files
 *.swp
 *~
+default.profraw
