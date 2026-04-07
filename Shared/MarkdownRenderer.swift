@@ -77,7 +77,8 @@ enum MarkdownRenderer {
             html += "var pre=cb.parentElement;var div=document.createElement('div');"
             html += "div.className='mermaid';div.textContent=cb.textContent;"
             html += "pre.parentElement.replaceChild(div,pre);});"
-            html += "mermaid.initialize({startOnLoad:false,theme:'default'});mermaid.run();"
+            html += "var mt=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'default';"
+            html += "mermaid.initialize({startOnLoad:false,theme:mt});mermaid.run();"
             html += "</script>"
         }
 
@@ -114,7 +115,7 @@ enum MarkdownRenderer {
 
     nonisolated(unsafe) private static let imgSrcRegex = /src="([^"]+)"/
 
-    private static let cssFiles = ["github-markdown", "github.min", "katex.min", "custom"]
+    private static let cssFiles = ["github-markdown", "github.min", "github-dark.min", "katex.min", "custom"]
     private static let resourceCache = OSAllocatedUnfairLock<[String: String]>(initialState: [:])
 
     private static func readBundleResource(_ name: String, _ ext: String, bundle: Bundle) -> String {

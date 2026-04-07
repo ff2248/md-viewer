@@ -171,6 +171,14 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
     }
 
     var fileURL: URL?
+    var bodyFontSize: Double = 16
+    var codeFontSize: Double = 13
+
+    func applyFontSizes() {
+        let js = "document.documentElement.style.setProperty('--body-font-size','\(Int(bodyFontSize))px');" +
+                 "document.documentElement.style.setProperty('--code-font-size','\(Int(codeFontSize))px');"
+        webView.evaluateJavaScript(js) { _, _ in }
+    }
 
     private func injectMarkdown(_ markdown: String) {
         var html = MarkdownRenderer.renderToHTML(markdown, bundle: bundle)
@@ -189,6 +197,7 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
             webView.evaluateJavaScript("renderHTML('\(base64)');") { _, _ in }
         }
 
+        applyFontSizes()
         lastRendered = markdown
         pendingMarkdown = nil
     }

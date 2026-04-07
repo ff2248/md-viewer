@@ -4,8 +4,12 @@ body {
     padding: 40px;
     background: #ffffff;
 }
-.markdown-body { font-size: 16px; }
+.markdown-body { font-size: var(--body-font-size, 16px); }
 .markdown-body pre { padding: 12px; }
-.markdown-body code, .markdown-body pre code { font-size: 13px; }
+.markdown-body code, .markdown-body pre code { font-size: var(--code-font-size, 13px); }
 .task-list-item { list-style-type: none; }
 .task-list-item input[type="checkbox"] { margin: 0 0.2em 0.25em -1.6em; }
+
+@media (prefers-color-scheme: dark) {
+    body { background: #0d1117; }
+}
