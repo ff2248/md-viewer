@@ -17,6 +17,7 @@ struct MDViewerApp: App {
         WindowGroup {
             ContentView(appState: appState)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .navigationTitle(appState.windowTitle)
                 .onOpenURL { url in
                     appState.openFile(url)
                 }
@@ -63,10 +64,35 @@ struct MDViewerApp: App {
                 .disabled(!canExport)
             }
             CommandGroup(after: .sidebar) {
-                Button(appState.showSidebar ? "Hide Sidebar" : "Show Sidebar") {
-                    withAnimation { appState.showSidebar.toggle() }
+                Button("Toggle Sidebar") {
+                    withAnimation {
+                        switch appState.columnVisibility {
+                        case .detailOnly: appState.columnVisibility = .doubleColumn
+                        default: appState.columnVisibility = .detailOnly
+                        }
+                    }
                 }
                 .keyboardShortcut("s", modifiers: [.command, .shift])
+
+                Divider()
+
+                Button("Zoom In") {
+                    appState.bodyFontSize = min(appState.bodyFontSize + 1, 24)
+                    UserDefaults.standard.set(appState.bodyFontSize, forKey: "bodyFontSize")
+                }
+                .keyboardShortcut("+", modifiers: .command)
+
+                Button("Zoom Out") {
+                    appState.bodyFontSize = max(appState.bodyFontSize - 1, 12)
+                    UserDefaults.standard.set(appState.bodyFontSize, forKey: "bodyFontSize")
+                }
+                .keyboardShortcut("-", modifiers: .command)
+
+                Button("Actual Size") {
+                    appState.bodyFontSize = RenderOptions.defaults.bodyFontSize
+                    UserDefaults.standard.set(appState.bodyFontSize, forKey: "bodyFontSize")
+                }
+                .keyboardShortcut("0", modifiers: .command)
             }
         }
 
@@ -165,7 +191,7 @@ class AppState {
     var markdown = ""
     var fileURL: URL?
     var windowTitle = "MDViewer"
-    var showSidebar = true
+    var columnVisibility: NavigationSplitViewVisibility = .doubleColumn
     var hardBreaks: Bool = RenderOptions.defaults.hardBreaks
     var showFrontMatter: Bool = RenderOptions.defaults.showFrontMatter
     var bodyFontSize: Double = RenderOptions.defaults.bodyFontSize
@@ -223,7 +249,6 @@ class AppState {
             fileWatcher?.cancel()
             fileWatcher = nil
         }
-        NSApplication.shared.mainWindow?.title = windowTitle
     }
 
     private func watchFile(_ url: URL) {
