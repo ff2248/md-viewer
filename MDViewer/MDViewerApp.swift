@@ -13,12 +13,28 @@ struct MDViewerApp: App {
 
     private var canExport: Bool { webProxy != nil && !appState.markdown.isEmpty }
 
+    /// Default window size: ~70% of screen, clamped to reasonable bounds.
+    private static var defaultWindowSize: CGSize {
+        let screen = NSScreen.main?.visibleFrame.size ?? CGSize(width: 1440, height: 900)
+        let width = min(max(screen.width * 0.7, 900), 1400)
+        let height = min(max(screen.height * 0.75, 600), 1000)
+        return CGSize(width: width, height: height)
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView(appState: appState)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .navigationTitle(appState.windowTitle)
                 .toolbar {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            appState.showSettings.toggle()
+                        } label: {
+                            Image(systemName: "gearshape")
+                        }
+                        .help("Settings")
+                    }
                     ToolbarItem(placement: .primaryAction) {
                         Button {
                             appState.openInExternalEditor()
@@ -41,8 +57,14 @@ struct MDViewerApp: App {
                     return true
                 }
         }
-        .defaultSize(width: 1000, height: 800)
+        .defaultSize(width: Self.defaultWindowSize.width, height: Self.defaultWindowSize.height)
         .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings...") {
+                    appState.showSettings.toggle()
+                }
+                .keyboardShortcut(",")
+            }
             CommandGroup(replacing: .newItem) {
                 Button("Open...") { appState.showOpenPanel() }
                     .keyboardShortcut("o")
@@ -106,16 +128,12 @@ struct MDViewerApp: App {
                 .keyboardShortcut("0", modifiers: .command)
             }
         }
-
-        Settings {
-            SettingsView()
-        }
     }
 }
 
 // MARK: - Settings
 
-private struct SettingsView: View {
+struct SettingsView: View {
     @AppStorage("appearance") private var appearance = "auto"
     @AppStorage("hardBreaks") private var hardBreaks = RenderOptions.defaults.hardBreaks
     @AppStorage("showFrontMatter") private var showFrontMatter = RenderOptions.defaults.showFrontMatter
@@ -161,7 +179,6 @@ private struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 360)
         .onChange(of: appearance) { _, newValue in
             AppState.applyAppearance(newValue)
         }
@@ -188,27 +205,9 @@ private struct SettingsView: View {
 // MARK: - App Delegate
 
 class AppDelegate: NSObject, NSApplicationDelegate {
-    private var windowObserver: Any?
-
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
-
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppState.applyAppearance(UserDefaults.standard.string(forKey: "appearance") ?? "auto")
-
-        // Quit when the main content window closes, even if Settings is still open
-        windowObserver = NotificationCenter.default.addObserver(
-            forName: NSWindow.willCloseNotification, object: nil, queue: .main
-        ) { notification in
-            guard let window = notification.object as? NSWindow,
-                  window.contentViewController != nil || window.contentView?.subviews.count ?? 0 > 0,
-                  window.styleMask.contains(.titled),
-                  window.identifier?.rawValue != "com_apple_SwiftUI_Settings_window" else { return }
-            // Only terminate if this looks like the main app window (titled, has content)
-            // Skip internal system windows (input method, accessibility, etc.)
-            if window.isMainWindow || window.title.hasSuffix(".md") || window.title == "MDViewer" {
-                NSApp.terminate(nil)
-            }
-        }
     }
 }
 
@@ -221,6 +220,7 @@ class AppState {
     var fileURL: URL?
     var windowTitle = "MDViewer"
     var columnVisibility: NavigationSplitViewVisibility = .doubleColumn
+    var showSettings = false
     var hardBreaks: Bool = RenderOptions.defaults.hardBreaks
     var showFrontMatter: Bool = RenderOptions.defaults.showFrontMatter
     var bodyFontSize: Double = RenderOptions.defaults.bodyFontSize

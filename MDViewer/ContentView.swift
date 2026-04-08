@@ -6,16 +6,18 @@ struct ContentView: View {
     @State private var selectedHeadingID: String?
     @State private var collapsedIDs: Set<String> = []
     @StateObject private var webProxy = WebViewProxy()
-    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         NavigationSplitView(columnVisibility: $appState.columnVisibility) {
-            if appState.markdown.isEmpty {
-                ContentUnavailableView("No Document", systemImage: "doc.text", description: Text("Open a .md file or drag one here"))
-            } else {
-                tocList
-                    .safeAreaInset(edge: .bottom, spacing: 0) { tocFooter }
+            Group {
+                if appState.markdown.isEmpty {
+                    ContentUnavailableView("No Document", systemImage: "doc.text", description: Text("Open a .md file or drag one here"))
+                } else {
+                    tocList
+                        .safeAreaInset(edge: .bottom, spacing: 0) { tocFooter }
+                }
             }
+            .navigationSplitViewColumnWidth(min: 180, ideal: 260, max: 400)
         } detail: {
             if appState.markdown.isEmpty {
                 emptyState
@@ -23,30 +25,33 @@ struct ContentView: View {
                 MarkdownWebView(proxy: webProxy, markdown: appState.markdown)
             }
         }
-        .navigationSplitViewColumnWidth(min: 180, ideal: 240, max: 400)
         .onAppear {
-                webProxy.onHeadingsLoaded = { self.headings = $0 }
-                webProxy.fileURL = appState.fileURL
-                webProxy.options = appState.renderOptions
+            webProxy.onHeadingsLoaded = { self.headings = $0 }
+            webProxy.fileURL = appState.fileURL
+            webProxy.options = appState.renderOptions
+        }
+        .onChange(of: appState.fileURL) {
+            webProxy.fileURL = appState.fileURL
+        }
+        .onChange(of: appState.renderOptions) { old, new in
+            webProxy.options = new
+            if old.bodyFontSize != new.bodyFontSize || old.codeFontSize != new.codeFontSize {
+                webProxy.applyFontSizes()
             }
-            .onChange(of: appState.fileURL) {
-                webProxy.fileURL = appState.fileURL
+            if old.hardBreaks != new.hardBreaks || old.showFrontMatter != new.showFrontMatter {
+                webProxy.forceRerender(markdown: appState.markdown)
             }
-            .onChange(of: appState.renderOptions) { old, new in
-                webProxy.options = new
-                if old.bodyFontSize != new.bodyFontSize || old.codeFontSize != new.codeFontSize {
-                    webProxy.applyFontSizes()
-                }
-                if old.hardBreaks != new.hardBreaks || old.showFrontMatter != new.showFrontMatter {
-                    webProxy.forceRerender(markdown: appState.markdown)
-                }
-            }
-            .onChange(of: appState.markdown) {
-                headings = []
-                selectedHeadingID = nil
-                collapsedIDs = []
-            }
-            .focusedSceneValue(\.webViewProxy, webProxy)
+        }
+        .onChange(of: appState.markdown) {
+            headings = []
+            selectedHeadingID = nil
+            collapsedIDs = []
+        }
+        .focusedSceneValue(\.webViewProxy, webProxy)
+        .inspector(isPresented: $appState.showSettings) {
+            SettingsView()
+                .inspectorColumnWidth(min: 280, ideal: 320, max: 400)
+        }
     }
 
     // MARK: - Empty State
@@ -98,28 +103,10 @@ struct ContentView: View {
         VStack(spacing: 0) {
             Divider()
             HStack(spacing: 8) {
-                Image(systemName: "list.bullet.indent")
-                    .frame(width: 20, height: 20)
-                    .foregroundStyle(collapsedIDs.isEmpty ? .tertiary : .secondary)
-                    .contentShape(Rectangle())
-                    .onTapGesture { withAnimation(.easeInOut(duration: 0.15)) { expandAll() } }
-                    .help("Expand All")
-
-                Image(systemName: "list.bullet")
-                    .frame(width: 20, height: 20)
-                    .foregroundStyle(.secondary)
-                    .contentShape(Rectangle())
-                    .onTapGesture { withAnimation(.easeInOut(duration: 0.15)) { collapseAll() } }
-                    .help("Collapse All")
+                footerButton("list.bullet.indent", help: "Expand All", disabled: collapsedIDs.isEmpty) { expandAll() }
+                footerButton("list.bullet", help: "Collapse All") { collapseAll() }
 
                 Spacer()
-
-                Image(systemName: "gearshape")
-                    .frame(width: 20, height: 20)
-                    .foregroundStyle(.secondary)
-                    .contentShape(Rectangle())
-                    .onTapGesture { openSettings() }
-                    .help("Settings")
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
@@ -151,6 +138,15 @@ struct ContentView: View {
         return headings[idx + 1].level > heading.level
     }
 
+    private func footerButton(_ icon: String, help: String, disabled: Bool = false, action: @escaping () -> Void) -> some View {
+        Button { withAnimation(.easeInOut(duration: 0.15)) { action() } } label: {
+            Image(systemName: icon)
+                .frame(width: 20, height: 20)
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .help(help)
+    }
 
     private func expandAll() {
         collapsedIDs.removeAll()
