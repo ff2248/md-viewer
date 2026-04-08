@@ -33,7 +33,7 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
         let uc = WKUserContentController()
         config.userContentController = uc
 
-        self.webView = WKWebView(frame: .zero, configuration: config)
+        self.webView = NonClickThroughWebView(frame: .zero, configuration: config)
         webView.setValue(false, forKey: "drawsBackground")
 
         super.init()
@@ -220,4 +220,11 @@ struct MarkdownWebView: NSViewRepresentable {
     func updateNSView(_ webView: WKWebView, context: Context) {
         proxy.render(markdown: markdown)
     }
+}
+
+/// Prevents click-through on inactive windows.
+/// WKWebView defaults acceptsFirstMouse to true, causing clicks that
+/// activate the window to also trigger web content interactions.
+private class NonClickThroughWebView: WKWebView {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { false }
 }

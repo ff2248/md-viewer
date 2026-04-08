@@ -98,29 +98,28 @@ struct ContentView: View {
         VStack(spacing: 0) {
             Divider()
             HStack(spacing: 8) {
-                Button { withAnimation(.easeInOut(duration: 0.15)) { expandAll() } } label: {
-                    Image(systemName: "list.bullet.indent")
-                        .frame(width: 20, height: 20)
-                }
-                .buttonStyle(.plain)
-                .disabled(collapsedIDs.isEmpty)
-                .help("Expand All")
+                Image(systemName: "list.bullet.indent")
+                    .frame(width: 20, height: 20)
+                    .foregroundStyle(collapsedIDs.isEmpty ? .tertiary : .secondary)
+                    .contentShape(Rectangle())
+                    .onTapGesture { withAnimation(.easeInOut(duration: 0.15)) { expandAll() } }
+                    .help("Expand All")
 
-                Button { withAnimation(.easeInOut(duration: 0.15)) { collapseAll() } } label: {
-                    Image(systemName: "list.bullet")
-                        .frame(width: 20, height: 20)
-                }
-                .buttonStyle(.plain)
-                .help("Collapse All")
+                Image(systemName: "list.bullet")
+                    .frame(width: 20, height: 20)
+                    .foregroundStyle(.secondary)
+                    .contentShape(Rectangle())
+                    .onTapGesture { withAnimation(.easeInOut(duration: 0.15)) { collapseAll() } }
+                    .help("Collapse All")
 
                 Spacer()
 
-                Button { openSettings() } label: {
-                    Image(systemName: "gearshape")
-                        .frame(width: 20, height: 20)
-                }
-                .buttonStyle(.plain)
-                .help("Settings")
+                Image(systemName: "gearshape")
+                    .frame(width: 20, height: 20)
+                    .foregroundStyle(.secondary)
+                    .contentShape(Rectangle())
+                    .onTapGesture { openSettings() }
+                    .help("Settings")
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
@@ -151,6 +150,7 @@ struct ContentView: View {
               idx + 1 < headings.count else { return false }
         return headings[idx + 1].level > heading.level
     }
+
 
     private func expandAll() {
         collapsedIDs.removeAll()

@@ -22,6 +22,7 @@ install: build
 	@rm -rf "$(INSTALL_DIR)/$(APP_NAME)"
 	@cp -R "$(BUILD_DIR)/$(APP_NAME)" "$(INSTALL_DIR)/"
 	@qlmanage -r >/dev/null 2>&1
+	@/System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister -f "$(INSTALL_DIR)/$(APP_NAME)"
 	@echo ""
 	@echo "Done! MDViewer installed to $(INSTALL_DIR)/$(APP_NAME)"
 	@echo ""
