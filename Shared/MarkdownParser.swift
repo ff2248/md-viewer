@@ -16,13 +16,12 @@ enum MarkdownParser {
     ///             Dangerous tags are still filtered by GFM tagfilter.
     ///             If `false`, all raw HTML is stripped. Default is `false`.
     /// - Returns: Rendered HTML string.
-    static func toHTML(_ markdown: String, unsafe: Bool = false, hardBreaks: Bool = false, showFrontMatter: Bool = false) -> String {
+    static func toHTML(_ markdown: String, options: RenderOptions = .defaults) -> String {
         var text = markdown
         let frontMatter = extractFrontMatter(&text)
-        text = replaceMathCodeBlocks(text)
         text = replaceEmojiShortcodes(text)
-        var html = cmarkToHTML(text, unsafe: unsafe, hardBreaks: hardBreaks)
-        if showFrontMatter, let table = frontMatter {
+        var html = cmarkToHTML(text, hardBreaks: options.hardBreaks)
+        if options.showFrontMatter, let table = frontMatter {
             html = table + html
         }
         return html
@@ -51,16 +50,6 @@ enum MarkdownParser {
         return "<table>\(rows.joined())</table>\n"
     }
 
-    /// Converts ` ```math ` code blocks to `$$...$$` so KaTeX can render them.
-    static func replaceMathCodeBlocks(_ text: String) -> String {
-        guard text.contains("```math") else { return text }
-        return text.replacing(mathCodeBlockRegex) { match in
-            "$$\n\(match.output.1)\n$$"
-        }
-    }
-
-    nonisolated(unsafe) private static let mathCodeBlockRegex = /```math\n([\s\S]*?)```/
-
     /// Replaces `:shortcode:` emoji patterns with their Unicode equivalents.
     /// Uses single regex scan + dictionary lookup instead of iterating all entries.
     static func replaceEmojiShortcodes(_ text: String) -> String {
@@ -75,11 +64,10 @@ enum MarkdownParser {
 
     // MARK: - cmark-gfm
 
-    private static func cmarkToHTML(_ text: String, unsafe: Bool, hardBreaks: Bool) -> String {
+    private static func cmarkToHTML(_ text: String, hardBreaks: Bool) -> String {
         cmark_gfm_core_extensions_ensure_registered()
 
-        var options: Int32 = CMARK_OPT_FOOTNOTES
-        if unsafe { options |= CMARK_OPT_UNSAFE }
+        var options: Int32 = CMARK_OPT_FOOTNOTES | CMARK_OPT_UNSAFE
         if hardBreaks { options |= CMARK_OPT_HARDBREAKS }
 
         guard let parser = cmark_parser_new(options) else { return "" }

@@ -18,8 +18,8 @@ enum MarkdownRenderer {
     // MARK: - Rendering
 
     /// Renders Markdown to HTML via cmark-gfm, highlight.js, and KaTeX.
-    static func renderToHTML(_ markdown: String, bundle: Bundle, hardBreaks: Bool = false, showFrontMatter: Bool = false) -> String {
-        var html = MarkdownParser.toHTML(markdown, unsafe: true, hardBreaks: hardBreaks, showFrontMatter: showFrontMatter)
+    static func renderToHTML(_ markdown: String, bundle: Bundle, options: RenderOptions = .defaults) -> String {
+        var html = MarkdownParser.toHTML(markdown, options: options)
         html = HighlightRenderer.highlight(in: html, bundle: bundle)
         html = KaTeXRenderer.renderMath(in: html, bundle: bundle)
         return html
@@ -45,7 +45,7 @@ enum MarkdownRenderer {
         """
     }
 
-    /// Builds a self-contained HTML page for Quick Look.
+    /// Builds a self-contained HTML document (used for Quick Look and HTML export).
     ///
     /// Markdown is parsed by cmark-gfm, then syntax highlighting and math
     /// are pre-rendered via JavaScriptCore. Only CSS is inlined — no JS
@@ -54,8 +54,8 @@ enum MarkdownRenderer {
     ///
     /// Uses string concatenation (not interpolation) because JS files
     /// contain `\(` which would break Swift string interpolation.
-    static func buildSelfContainedHTML(markdown: String, bundle: Bundle, baseURL: URL? = nil, hardBreaks: Bool = false, showFrontMatter: Bool = false) -> String {
-        var renderedHTML = renderToHTML(markdown, bundle: bundle, hardBreaks: hardBreaks, showFrontMatter: showFrontMatter)
+    static func buildSelfContainedHTML(markdown: String, bundle: Bundle, baseURL: URL? = nil, options: RenderOptions = .defaults) -> String {
+        var renderedHTML = renderToHTML(markdown, bundle: bundle, options: options)
         if let baseURL = baseURL {
             renderedHTML = inlineLocalImages(in: renderedHTML, relativeTo: baseURL)
         }

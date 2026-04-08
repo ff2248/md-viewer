@@ -55,7 +55,7 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
     }
 
     func scrollToHeading(_ id: String) {
-        webView.evaluateJavaScript("scrollToHeading('\(id)');") { _, _ in }
+        webView.evaluateJavaScript("scrollToHeading('\(id.jsEscaped)');") { _, _ in }
     }
 
     func exportHTML(markdown: String, title: String) {
@@ -64,7 +64,7 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
         panel.nameFieldStringValue = title.replacingOccurrences(of: ".md", with: ".html")
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
-        let html = MarkdownRenderer.buildSelfContainedHTML(markdown: markdown, bundle: bundle, hardBreaks: hardBreaks, showFrontMatter: showFrontMatter)
+        let html = MarkdownRenderer.buildSelfContainedHTML(markdown: markdown, bundle: bundle, options: options)
         do {
             try html.write(to: url, atomically: true, encoding: .utf8)
         } catch {
@@ -81,21 +81,10 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
 
         let config = WKPDFConfiguration()
         webView.createPDF(configuration: config) { result in
-            switch result {
-            case .success(let data):
-                do {
-                    try data.write(to: url)
-                } catch {
-                    Task { @MainActor in
-                        let alert = NSAlert(error: error)
-                        alert.runModal()
-                    }
-                }
-            case .failure(let error):
-                Task { @MainActor in
-                    let alert = NSAlert(error: error)
-                    alert.runModal()
-                }
+            do {
+                try result.get().write(to: url)
+            } catch {
+                Task { @MainActor in NSAlert(error: error).runModal() }
             }
         }
     }
@@ -176,19 +165,16 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
     }
 
     var fileURL: URL?
-    var hardBreaks: Bool = true
-    var showFrontMatter: Bool = true
-    var bodyFontSize: Double = 16
-    var codeFontSize: Double = 13
+    var options: RenderOptions = .defaults
 
     func applyFontSizes() {
-        let js = "document.documentElement.style.setProperty('--body-font-size','\(Int(bodyFontSize))px');" +
-                 "document.documentElement.style.setProperty('--code-font-size','\(Int(codeFontSize))px');"
+        let js = "document.documentElement.style.setProperty('--body-font-size','\(Int(options.bodyFontSize))px');" +
+                 "document.documentElement.style.setProperty('--code-font-size','\(Int(options.codeFontSize))px');"
         webView.evaluateJavaScript(js) { _, _ in }
     }
 
     private func injectMarkdown(_ markdown: String) {
-        var html = MarkdownRenderer.renderToHTML(markdown, bundle: bundle, hardBreaks: hardBreaks, showFrontMatter: showFrontMatter)
+        var html = MarkdownRenderer.renderToHTML(markdown, bundle: bundle, options: options)
         if let fileURL {
             html = MarkdownRenderer.inlineLocalImages(in: html, relativeTo: fileURL)
         }

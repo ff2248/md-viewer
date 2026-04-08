@@ -9,10 +9,11 @@ import Foundation
 enum KaTeXRenderer {
 
     static func renderMath(in html: String, bundle: Bundle = .main) -> String {
-        guard html.contains("$") else { return html }
+        guard html.contains("$") || html.contains("language-math") else { return html }
         guard let ctx = cache.context(bundle: bundle) else { return html }
 
         var result = html
+        result = replaceMathCodeBlocks(in: result, context: ctx)
         result = replaceDisplay(in: result, context: ctx)
         result = replaceInline(in: result, context: ctx)
         return result
@@ -24,6 +25,23 @@ enum KaTeXRenderer {
         resource: "katex.min",
         globalName: "katex"
     )
+
+    // ```math code blocks (rendered by cmark-gfm as <pre><code class="language-math">)
+    nonisolated(unsafe) private static let mathCodeBlockRegex =
+        /<pre><code class="language-math">([\s\S]*?)<\/code><\/pre>/
+
+    private static func replaceMathCodeBlocks(in html: String, context: JSContext) -> String {
+        let matches = Array(html.matches(of: mathCodeBlockRegex))
+        var result = html
+        for match in matches.reversed() {
+            let expr = String(match.output.1).htmlUnescaped.trimmingCharacters(in: .whitespacesAndNewlines)
+            let js = "try{katex.renderToString('\(expr.jsEscaped)',{displayMode:true,throwOnError:false})}catch(e){''}"
+            if let rendered = context.evaluateScript(js)?.toString(), !rendered.isEmpty {
+                result.replaceSubrange(match.range, with: rendered)
+            }
+        }
+        return result
+    }
 
     // $$...$$  (display math)
     nonisolated(unsafe) private static let displayMathRegex = /\$\$(.+?)\$\$/

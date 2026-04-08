@@ -17,6 +17,7 @@ enum HighlightRenderer {
         let matches = Array(result.matches(of: codeBlockRegex))
         for match in matches.reversed() {
             let lang = String(match.output.1)
+            if lang == "math" || lang == "mermaid" { continue }
             let code = String(match.output.2).htmlUnescaped
 
             let js = """

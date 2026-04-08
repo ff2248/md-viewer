@@ -25,29 +25,19 @@ struct ContentView: View {
             .onAppear {
                 webProxy.onHeadingsLoaded = { self.headings = $0 }
                 webProxy.fileURL = appState.fileURL
-                webProxy.hardBreaks = appState.hardBreaks
-                webProxy.showFrontMatter = appState.showFrontMatter
-                webProxy.bodyFontSize = appState.bodyFontSize
-                webProxy.codeFontSize = appState.codeFontSize
+                webProxy.options = appState.renderOptions
             }
             .onChange(of: appState.fileURL) {
                 webProxy.fileURL = appState.fileURL
             }
-            .onChange(of: appState.hardBreaks) {
-                webProxy.hardBreaks = appState.hardBreaks
-                webProxy.forceRerender(markdown: appState.markdown)
-            }
-            .onChange(of: appState.showFrontMatter) {
-                webProxy.showFrontMatter = appState.showFrontMatter
-                webProxy.forceRerender(markdown: appState.markdown)
-            }
-            .onChange(of: appState.bodyFontSize) {
-                webProxy.bodyFontSize = appState.bodyFontSize
-                webProxy.applyFontSizes()
-            }
-            .onChange(of: appState.codeFontSize) {
-                webProxy.codeFontSize = appState.codeFontSize
-                webProxy.applyFontSizes()
+            .onChange(of: appState.renderOptions) { old, new in
+                webProxy.options = new
+                if old.bodyFontSize != new.bodyFontSize || old.codeFontSize != new.codeFontSize {
+                    webProxy.applyFontSizes()
+                }
+                if old.hardBreaks != new.hardBreaks || old.showFrontMatter != new.showFrontMatter {
+                    webProxy.forceRerender(markdown: appState.markdown)
+                }
             }
             .onChange(of: appState.markdown) {
                 headings = []

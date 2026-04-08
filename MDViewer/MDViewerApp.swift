@@ -78,11 +78,11 @@ struct MDViewerApp: App {
 
 private struct SettingsView: View {
     @AppStorage("appearance") private var appearance = "auto"
-    @AppStorage("hardBreaks") private var hardBreaks = true
-    @AppStorage("showFrontMatter") private var showFrontMatter = true
+    @AppStorage("hardBreaks") private var hardBreaks = RenderOptions.defaults.hardBreaks
+    @AppStorage("showFrontMatter") private var showFrontMatter = RenderOptions.defaults.showFrontMatter
     @AppStorage("externalEditor") private var externalEditor = "/System/Applications/TextEdit.app"
-    @AppStorage("bodyFontSize") private var bodyFontSize = 16.0
-    @AppStorage("codeFontSize") private var codeFontSize = 13.0
+    @AppStorage("bodyFontSize") private var bodyFontSize = RenderOptions.defaults.bodyFontSize
+    @AppStorage("codeFontSize") private var codeFontSize = RenderOptions.defaults.codeFontSize
 
     var body: some View {
         Form {
@@ -164,50 +164,38 @@ class AppState {
     var fileURL: URL?
     var windowTitle = "MDViewer"
     var showSidebar = true
-    var hardBreaks: Bool = true
-    var showFrontMatter: Bool = true
-    var bodyFontSize: Double = 16
-    var codeFontSize: Double = 13
+    var hardBreaks: Bool = RenderOptions.defaults.hardBreaks
+    var showFrontMatter: Bool = RenderOptions.defaults.showFrontMatter
+    var bodyFontSize: Double = RenderOptions.defaults.bodyFontSize
+    var codeFontSize: Double = RenderOptions.defaults.codeFontSize
+
+    var renderOptions: RenderOptions {
+        RenderOptions(hardBreaks: hardBreaks, showFrontMatter: showFrontMatter,
+                      bodyFontSize: bodyFontSize, codeFontSize: codeFontSize)
+    }
 
     private var defaultsObserver: Any?
     private var fileWatcher: DispatchSourceFileSystemObject?
 
     init() {
-        let defaults = UserDefaults.standard
-        if defaults.object(forKey: "hardBreaks") != nil {
-            hardBreaks = defaults.bool(forKey: "hardBreaks")
-        }
-        if defaults.object(forKey: "showFrontMatter") != nil {
-            showFrontMatter = defaults.bool(forKey: "showFrontMatter")
-        }
-        let savedBody = defaults.double(forKey: "bodyFontSize")
-        if savedBody > 0 { bodyFontSize = savedBody }
-        let savedCode = defaults.double(forKey: "codeFontSize")
-        if savedCode > 0 { codeFontSize = savedCode }
+        syncFromDefaults()
+        Self.applyAppearance(UserDefaults.standard.string(forKey: "appearance") ?? "auto")
 
-        Self.applyAppearance(defaults.string(forKey: "appearance") ?? "auto")
-
-        // Watch for settings changes from the Settings window
         defaultsObserver = NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification, object: nil, queue: .main
-        ) { [weak self] _ in
-            guard let self else { return }
-            let d = UserDefaults.standard
-            if d.object(forKey: "hardBreaks") != nil {
-                self.hardBreaks = d.bool(forKey: "hardBreaks")
-            }
-            if d.object(forKey: "showFrontMatter") != nil {
-                self.showFrontMatter = d.bool(forKey: "showFrontMatter")
-            }
-            let newBody = d.double(forKey: "bodyFontSize")
-            if newBody > 0 { self.bodyFontSize = newBody }
-            let newCode = d.double(forKey: "codeFontSize")
-            if newCode > 0 { self.codeFontSize = newCode }
-        }
+        ) { [weak self] _ in self?.syncFromDefaults() }
 
         if let path = ProcessInfo.processInfo.arguments.dropFirst().first {
             openFile(URL(fileURLWithPath: path))
         }
+    }
+
+    private func syncFromDefaults() {
+        let opts = RenderOptions.fromDefaults()
+        hardBreaks = opts.hardBreaks
+        showFrontMatter = opts.showFrontMatter
+        bodyFontSize = opts.bodyFontSize
+        codeFontSize = opts.codeFontSize
     }
 
     static func applyAppearance(_ value: String) {
