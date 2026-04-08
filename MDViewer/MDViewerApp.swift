@@ -35,6 +35,14 @@ struct MDViewerApp: App {
 
                 Divider()
 
+                Button("Open in External Editor") {
+                    appState.openInExternalEditor()
+                }
+                .keyboardShortcut("e", modifiers: [.command, .shift])
+                .disabled(appState.fileURL == nil)
+
+                Divider()
+
                 Button("Export as PDF...") {
                     webProxy?.exportPDF(title: appState.windowTitle)
                 }
@@ -44,7 +52,6 @@ struct MDViewerApp: App {
                 Button("Export as HTML...") {
                     webProxy?.exportHTML(markdown: appState.markdown, title: appState.windowTitle)
                 }
-                .keyboardShortcut("e", modifiers: [.command, .shift])
                 .disabled(webProxy == nil || appState.markdown.isEmpty)
 
                 Button("Print...") {
@@ -72,6 +79,7 @@ struct MDViewerApp: App {
 private struct SettingsView: View {
     @AppStorage("appearance") private var appearance = "auto"
     @AppStorage("hardBreaks") private var hardBreaks = true
+    @AppStorage("externalEditor") private var externalEditor = "/System/Applications/TextEdit.app"
     @AppStorage("bodyFontSize") private var bodyFontSize = 16.0
     @AppStorage("codeFontSize") private var codeFontSize = 13.0
 
@@ -84,6 +92,14 @@ private struct SettingsView: View {
             }
 
             Toggle("Single newline as line break", isOn: $hardBreaks)
+
+            LabeledContent("External Editor") {
+                HStack {
+                    Text(editorDisplayName)
+                    Spacer()
+                    Button("Choose...") { pickEditor() }
+                }
+            }
 
             LabeledContent("Body Font Size") {
                 HStack {
@@ -107,6 +123,23 @@ private struct SettingsView: View {
         .frame(width: 360)
         .onChange(of: appearance) { _, newValue in
             AppState.applyAppearance(newValue)
+        }
+    }
+
+    private var editorDisplayName: String {
+        let url = URL(filePath: externalEditor)
+        return url.deletingPathExtension().lastPathComponent
+    }
+
+    private func pickEditor() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.application]
+        panel.directoryURL = URL(filePath: "/Applications")
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.message = "Choose an application to edit Markdown files"
+        if panel.runModal() == .OK, let url = panel.url {
+            externalEditor = url.path
         }
     }
 }
@@ -217,6 +250,13 @@ class AppState {
         source.setCancelHandler { close(fd) }
         source.resume()
         fileWatcher = source
+    }
+
+    func openInExternalEditor() {
+        guard let url = fileURL else { return }
+        let editorPath = UserDefaults.standard.string(forKey: "externalEditor") ?? "/System/Applications/TextEdit.app"
+        let editorURL = URL(filePath: editorPath)
+        NSWorkspace.shared.open([url], withApplicationAt: editorURL, configuration: NSWorkspace.OpenConfiguration())
     }
 
     func showOpenPanel() {
