@@ -18,6 +18,17 @@ struct MDViewerApp: App {
             ContentView(appState: appState)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .navigationTitle(appState.windowTitle)
+                .toolbar {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            appState.openInExternalEditor()
+                        } label: {
+                            Image(systemName: "pencil.and.outline")
+                        }
+                        .help("Open in External Editor")
+                        .disabled(appState.fileURL == nil)
+                    }
+                }
                 .onOpenURL { url in
                     appState.openFile(url)
                 }
@@ -184,13 +195,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppState.applyAppearance(UserDefaults.standard.string(forKey: "appearance") ?? "auto")
 
-        // Quit when the main window closes, even if Settings is still open
+        // Quit when the main content window closes, even if Settings is still open
         windowObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.willCloseNotification, object: nil, queue: .main
         ) { notification in
             guard let window = notification.object as? NSWindow,
+                  window.contentViewController != nil || window.contentView?.subviews.count ?? 0 > 0,
+                  window.styleMask.contains(.titled),
                   window.identifier?.rawValue != "com_apple_SwiftUI_Settings_window" else { return }
-            NSApp.terminate(nil)
+            // Only terminate if this looks like the main app window (titled, has content)
+            // Skip internal system windows (input method, accessibility, etc.)
+            if window.isMainWindow || window.title.hasSuffix(".md") || window.title == "MDViewer" {
+                NSApp.terminate(nil)
+            }
         }
     }
 }
