@@ -61,25 +61,20 @@ final class MarkdownRendererTests: XCTestCase {
         XCTAssertTrue(html.contains("<del>"))
     }
 
-    func testParserStripsHTMLWhenSafe() {
-        let html = MarkdownParser.toHTML("<script>alert(1)</script>", unsafe: false)
-        XCTAssertFalse(html.contains("<script>"))
-    }
-
-    func testParserAllowsHTMLWhenUnsafe() {
-        let html = MarkdownParser.toHTML("<div>hello</div>", unsafe: true)
-        XCTAssertTrue(html.contains("<div>hello</div>"))
-    }
-
     func testTagFilterBlocksDangerousTags() {
         // GFM tagfilter replaces dangerous tags with escaped versions
-        let html = MarkdownParser.toHTML("<script>alert(1)</script>", unsafe: true)
+        let html = MarkdownParser.toHTML("<script>alert(1)</script>")
         XCTAssertFalse(html.contains("<script>"))
     }
 
     func testTagFilterAllowsSafeTags() {
-        let html = MarkdownParser.toHTML("<details><summary>click</summary>hi</details>", unsafe: true)
+        let html = MarkdownParser.toHTML("<details><summary>click</summary>hi</details>")
         XCTAssertTrue(html.contains("<details>"))
+    }
+
+    func testRawHTMLIsRendered() {
+        let html = MarkdownParser.toHTML("<div>hello</div>")
+        XCTAssertTrue(html.contains("<div>hello</div>"))
     }
 
     // MARK: - Front matter

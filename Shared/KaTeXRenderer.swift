@@ -26,6 +26,12 @@ enum KaTeXRenderer {
         globalName: "katex"
     )
 
+    private static func renderKaTeX(_ expr: String, displayMode: Bool, context: JSContext) -> String? {
+        let js = "try{katex.renderToString('\(expr.jsEscaped)',{displayMode:\(displayMode),throwOnError:false})}catch(e){''}"
+        guard let result = context.evaluateScript(js)?.toString(), !result.isEmpty else { return nil }
+        return result
+    }
+
     // ```math code blocks (rendered by cmark-gfm as <pre><code class="language-math">)
     nonisolated(unsafe) private static let mathCodeBlockRegex =
         /<pre><code class="language-math">([\s\S]*?)<\/code><\/pre>/
@@ -35,8 +41,7 @@ enum KaTeXRenderer {
         var result = html
         for match in matches.reversed() {
             let expr = String(match.output.1).htmlUnescaped.trimmingCharacters(in: .whitespacesAndNewlines)
-            let js = "try{katex.renderToString('\(expr.jsEscaped)',{displayMode:true,throwOnError:false})}catch(e){''}"
-            if let rendered = context.evaluateScript(js)?.toString(), !rendered.isEmpty {
+            if let rendered = renderKaTeX(expr, displayMode: true, context: context) {
                 result.replaceSubrange(match.range, with: rendered)
             }
         }
@@ -60,8 +65,7 @@ enum KaTeXRenderer {
             if isInsideCodeBlock(before) { continue }
 
             let expr = String(match.output.1)
-            let js = "try{katex.renderToString('\(expr.jsEscaped)',{displayMode:true,throwOnError:false})}catch(e){''}"
-            if let rendered = context.evaluateScript(js)?.toString(), !rendered.isEmpty {
+            if let rendered = renderKaTeX(expr, displayMode: true, context: context) {
                 result.replaceSubrange(match.range, with: rendered)
             }
         }
@@ -82,8 +86,7 @@ enum KaTeXRenderer {
             if isInsideCodeBlock(before) { continue }
 
             let expr = String(match.output.1)
-            let js = "try{katex.renderToString('\(expr.jsEscaped)',{displayMode:false,throwOnError:false})}catch(e){''}"
-            if let rendered = context.evaluateScript(js)?.toString(), !rendered.isEmpty {
+            if let rendered = renderKaTeX(expr, displayMode: false, context: context) {
                 result.replaceSubrange(match.range, with: rendered)
             }
         }

@@ -9,13 +9,7 @@ import CMarkGFM
 enum MarkdownParser {
 
     /// Parse Markdown to HTML with all GFM extensions enabled.
-    ///
-    /// - Parameters:
-    ///   - markdown: Raw Markdown text.
-    ///   - unsafe: If `true`, allows raw HTML in Markdown (e.g., `<div>`).
-    ///             Dangerous tags are still filtered by GFM tagfilter.
-    ///             If `false`, all raw HTML is stripped. Default is `false`.
-    /// - Returns: Rendered HTML string.
+    /// Raw HTML is allowed; dangerous tags are filtered by GFM tagfilter.
     static func toHTML(_ markdown: String, options: RenderOptions = .defaults) -> String {
         var text = markdown
         let frontMatter = extractFrontMatter(&text)

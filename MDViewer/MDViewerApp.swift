@@ -11,6 +11,8 @@ struct MDViewerApp: App {
     @State private var appState = AppState()
     @FocusedValue(\.webViewProxy) private var webProxy
 
+    private var canExport: Bool { webProxy != nil && !appState.markdown.isEmpty }
+
     var body: some Scene {
         WindowGroup {
             ContentView(appState: appState)
@@ -47,18 +49,18 @@ struct MDViewerApp: App {
                     webProxy?.exportPDF(title: appState.windowTitle)
                 }
                 .keyboardShortcut("e")
-                .disabled(webProxy == nil || appState.markdown.isEmpty)
+                .disabled(!canExport)
 
                 Button("Export as HTML...") {
                     webProxy?.exportHTML(markdown: appState.markdown, title: appState.windowTitle)
                 }
-                .disabled(webProxy == nil || appState.markdown.isEmpty)
+                .disabled(!canExport)
 
                 Button("Print...") {
                     webProxy?.printContent()
                 }
                 .keyboardShortcut("p")
-                .disabled(webProxy == nil || appState.markdown.isEmpty)
+                .disabled(!canExport)
             }
             CommandGroup(after: .sidebar) {
                 Button(appState.showSidebar ? "Hide Sidebar" : "Show Sidebar") {
@@ -213,13 +215,15 @@ class AppState {
             markdown = text
             fileURL = url
             windowTitle = url.lastPathComponent
+            watchFile(url)
         case .failure:
             markdown = ""
             fileURL = nil
             windowTitle = "MDViewer"
+            fileWatcher?.cancel()
+            fileWatcher = nil
         }
         NSApplication.shared.mainWindow?.title = windowTitle
-        watchFile(url)
     }
 
     private func watchFile(_ url: URL) {
