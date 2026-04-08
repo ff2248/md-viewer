@@ -9,6 +9,7 @@ struct ContentView: View {
     @State private var isCursorPushed = false
     @GestureState private var dragOffset: CGFloat = 0
     @StateObject private var webProxy = WebViewProxy()
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         if appState.markdown.isEmpty {
@@ -20,8 +21,8 @@ struct ContentView: View {
                     Divider()
                 }
                 MarkdownWebView(proxy: webProxy, markdown: appState.markdown)
+                    .ignoresSafeArea()
             }
-            .ignoresSafeArea()
             .onAppear {
                 webProxy.onHeadingsLoaded = { self.headings = $0 }
                 webProxy.fileURL = appState.fileURL
@@ -75,12 +76,12 @@ struct ContentView: View {
                     withAnimation { appState.showSidebar = false }
                 } label: {
                     Image(systemName: "sidebar.left")
-                        .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.borderless)
+                .help("Hide Sidebar")
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .frame(height: 36)
 
             Divider()
 
@@ -109,22 +110,33 @@ struct ContentView: View {
 
             Divider()
 
-            HStack(spacing: 4) {
-                TooltipButton(icon: "list.bullet.indent", tooltip: "Expand All", isDisabled: collapsedIDs.isEmpty) {
-                    withAnimation(.easeInOut(duration: 0.15)) { expandAll() }
+            HStack(spacing: 8) {
+                Button { withAnimation(.easeInOut(duration: 0.15)) { expandAll() } } label: {
+                    Image(systemName: "list.bullet.indent")
+                        .frame(width: 20, height: 20)
                 }
-                .frame(width: 24, height: 24)
+                .buttonStyle(.plain)
+                .disabled(collapsedIDs.isEmpty)
+                .help("Expand All")
 
-                TooltipButton(icon: "list.bullet", tooltip: "Collapse All") {
-                    withAnimation(.easeInOut(duration: 0.15)) { collapseAll() }
+                Button { withAnimation(.easeInOut(duration: 0.15)) { collapseAll() } } label: {
+                    Image(systemName: "list.bullet")
+                        .frame(width: 20, height: 20)
                 }
-                .frame(width: 24, height: 24)
+                .buttonStyle(.plain)
+                .help("Collapse All")
 
                 Spacer()
+
+                Button { openSettings() } label: {
+                    Image(systemName: "gearshape")
+                        .frame(width: 20, height: 20)
+                }
+                .buttonStyle(.plain)
+                .help("Settings")
             }
             .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .fixedSize(horizontal: false, vertical: true)
+            .padding(.vertical, 6)
         }
         .frame(width: max(160, min(sidebarWidth + dragOffset, 500)))
         .overlay(alignment: .trailing) {
@@ -200,44 +212,6 @@ struct ContentView: View {
             } else {
                 collapsedIDs.insert(heading.id)
             }
-        }
-    }
-
-    // MARK: - Tooltip Button
-
-    private struct TooltipButton: NSViewRepresentable {
-        let icon: String
-        let tooltip: String
-        var isDisabled: Bool = false
-        let action: () -> Void
-
-        func makeNSView(context: Context) -> NSButton {
-            let button = NSButton()
-            button.isBordered = false
-            button.target = context.coordinator
-            button.action = #selector(Coordinator.clicked)
-            button.setContentHuggingPriority(.required, for: .horizontal)
-            button.setContentHuggingPriority(.required, for: .vertical)
-            button.translatesAutoresizingMaskIntoConstraints = false
-            button.widthAnchor.constraint(equalToConstant: 24).isActive = true
-            button.heightAnchor.constraint(equalToConstant: 24).isActive = true
-            return button
-        }
-
-        func updateNSView(_ button: NSButton, context: Context) {
-            button.image = NSImage(systemSymbolName: icon, accessibilityDescription: tooltip)
-            button.toolTip = tooltip
-            button.isEnabled = !isDisabled
-            button.alphaValue = isDisabled ? 0.3 : 1
-            context.coordinator.action = action
-        }
-
-        func makeCoordinator() -> Coordinator { Coordinator(action: action) }
-
-        class Coordinator: NSObject {
-            var action: () -> Void
-            init(action: @escaping () -> Void) { self.action = action }
-            @objc func clicked() { action() }
         }
     }
 
