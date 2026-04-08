@@ -2,7 +2,7 @@ import SwiftUI
 import WebKit
 
 /// A heading extracted from rendered Markdown, used for TOC sidebar navigation.
-struct Heading: Identifiable, Equatable, Sendable {
+struct Heading: Identifiable, Equatable {
     let id: String
     let level: Int
     let text: String
@@ -33,7 +33,7 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
         let uc = WKUserContentController()
         config.userContentController = uc
 
-        self.webView = NonClickThroughWebView(frame: .zero, configuration: config)
+        webView = NonClickThroughWebView(frame: .zero, configuration: config)
         webView.setValue(false, forKey: "drawsBackground")
 
         super.init()
@@ -43,7 +43,8 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
 
         // 1. Start loading template + CSS immediately
         if let templateURL = bundle.url(forResource: "template", withExtension: "html"),
-           let resourcesURL = bundle.resourceURL {
+           let resourcesURL = bundle.resourceURL
+        {
             webView.loadFileURL(templateURL, allowingReadAccessTo: resourcesURL)
         }
 
@@ -114,12 +115,12 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
 
     // MARK: - WKNavigationDelegate
 
-    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
+    func webView(_: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
         guard navigationAction.navigationType == .linkActivated,
               let url = navigationAction.request.url else { return .allow }
 
         // In-page anchor links (e.g. footnotes) — handle within the WebView
-        if url.fragment != nil && url.scheme == "file" {
+        if url.fragment != nil, url.scheme == "file" {
             return .allow
         }
 
@@ -128,7 +129,7 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
         return .cancel
     }
 
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+    func webView(_: WKWebView, didFinish _: WKNavigation!) {
         // Template loaded — WebView is ready
         isReady = true
         if let md = pendingMarkdown {
@@ -138,8 +139,9 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
 
     // MARK: - WKScriptMessageHandler
 
-    func userContentController(_ userContentController: WKUserContentController,
-                               didReceive message: WKScriptMessage) {
+    func userContentController(_: WKUserContentController,
+                               didReceive message: WKScriptMessage)
+    {
         guard message.name == "headings",
               let list = message.body as? [[String: Any]] else { return }
 
@@ -169,7 +171,7 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
 
     func applyFontSizes() {
         let js = "document.documentElement.style.setProperty('--body-font-size','\(Int(options.bodyFontSize))px');" +
-                 "document.documentElement.style.setProperty('--code-font-size','\(Int(options.codeFontSize))px');"
+            "document.documentElement.style.setProperty('--code-font-size','\(Int(options.codeFontSize))px');"
         webView.evaluateJavaScript(js) { _, _ in }
     }
 
@@ -181,7 +183,7 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
         let base64 = Data(html.utf8).base64EncodedString()
 
         let hasMermaid = MarkdownRenderer.hasMermaid(markdown)
-        if hasMermaid && !mermaidInjected, let js = mermaidJS {
+        if hasMermaid, !mermaidInjected, let js = mermaidJS {
             webView.evaluateJavaScript(js) { [weak self] _, _ in
                 self?.mermaidInjected = true
                 self?.webView.evaluateJavaScript("renderHTML('\(base64)');") { _, _ in }
@@ -212,12 +214,12 @@ struct MarkdownWebView: NSViewRepresentable {
     let proxy: WebViewProxy
     let markdown: String
 
-    func makeNSView(context: Context) -> WKWebView {
+    func makeNSView(context _: Context) -> WKWebView {
         proxy.render(markdown: markdown)
         return proxy.webView
     }
 
-    func updateNSView(_ webView: WKWebView, context: Context) {
+    func updateNSView(_: WKWebView, context _: Context) {
         proxy.render(markdown: markdown)
     }
 }
@@ -226,5 +228,7 @@ struct MarkdownWebView: NSViewRepresentable {
 /// WKWebView defaults acceptsFirstMouse to true, causing clicks that
 /// activate the window to also trigger web content interactions.
 private class NonClickThroughWebView: WKWebView {
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { false }
+    override func acceptsFirstMouse(for _: NSEvent?) -> Bool {
+        false
+    }
 }

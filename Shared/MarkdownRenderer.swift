@@ -2,7 +2,6 @@ import Foundation
 import os
 
 enum MarkdownRenderer {
-
     // MARK: - File I/O
 
     /// Reads a Markdown file with lossy UTF-8 decoding.
@@ -56,7 +55,7 @@ enum MarkdownRenderer {
     /// contain `\(` which would break Swift string interpolation.
     static func buildSelfContainedHTML(markdown: String, bundle: Bundle, baseURL: URL? = nil, options: RenderOptions = .defaults) -> String {
         var renderedHTML = renderToHTML(markdown, bundle: bundle, options: options)
-        if let baseURL = baseURL {
+        if let baseURL {
             renderedHTML = inlineLocalImages(in: renderedHTML, relativeTo: baseURL)
         }
 
@@ -99,21 +98,20 @@ enum MarkdownRenderer {
             }
             let fileURL = dir.appendingPathComponent(src)
             guard let data = try? Data(contentsOf: fileURL) else { return String(match.output.0) }
-            let mime: String
-            switch fileURL.pathExtension.lowercased() {
-            case "png": mime = "image/png"
-            case "jpg", "jpeg": mime = "image/jpeg"
-            case "gif": mime = "image/gif"
-            case "svg": mime = "image/svg+xml"
-            case "webp": mime = "image/webp"
-            default: mime = "application/octet-stream"
+            let mime = switch fileURL.pathExtension.lowercased() {
+            case "png": "image/png"
+            case "jpg", "jpeg": "image/jpeg"
+            case "gif": "image/gif"
+            case "svg": "image/svg+xml"
+            case "webp": "image/webp"
+            default: "application/octet-stream"
             }
             let b64 = data.base64EncodedString()
             return "src=\"data:\(mime);base64,\(b64)\""
         }
     }
 
-    nonisolated(unsafe) private static let imgSrcRegex = /src="([^"]+)"/
+    private nonisolated(unsafe) static let imgSrcRegex = /src="([^"]+)"/
 
     private static let cssFiles = ["github-markdown", "github.min", "github-dark.min", "katex.min", "custom"]
     private static let resourceCache = OSAllocatedUnfairLock<[String: String]>(initialState: [:])

@@ -7,7 +7,6 @@ import Foundation
 /// calls `katex.renderToString()` for each, and replaces with rendered HTML.
 /// No browser-side JavaScript needed — the output is pure HTML + CSS.
 enum KaTeXRenderer {
-
     static func renderMath(in html: String, bundle: Bundle = .main) -> String {
         guard html.contains("$") || html.contains("language-math") else { return html }
         guard let ctx = cache.context(bundle: bundle) else { return html }
@@ -32,8 +31,8 @@ enum KaTeXRenderer {
         return result
     }
 
-    // ```math code blocks (rendered by cmark-gfm as <pre><code class="language-math">)
-    nonisolated(unsafe) private static let mathCodeBlockRegex =
+    /// ```math code blocks (rendered by cmark-gfm as <pre><code class="language-math">)
+    private nonisolated(unsafe) static let mathCodeBlockRegex =
         /<pre><code class="language-math">([\s\S]*?)<\/code><\/pre>/
 
     private static func replaceMathCodeBlocks(in html: String, context: JSContext) -> String {
@@ -48,20 +47,20 @@ enum KaTeXRenderer {
         return result
     }
 
-    // $$...$$  (display math)
-    nonisolated(unsafe) private static let displayMathRegex = /\$\$(.+?)\$\$/
+    /// $$...$$  (display math)
+    private nonisolated(unsafe) static let displayMathRegex = /\$\$(.+?)\$\$/
         .dotMatchesNewlines()
 
-    // $...$  (inline math) — Swift Regex doesn't support lookbehind,
-    // so we use a simple pattern and filter out $$ matches manually.
-    nonisolated(unsafe) private static let inlineMathRegex = /\$(.+?)\$/
+    /// $...$  (inline math) — Swift Regex doesn't support lookbehind,
+    /// so we use a simple pattern and filter out $$ matches manually.
+    private nonisolated(unsafe) static let inlineMathRegex = /\$(.+?)\$/
         .dotMatchesNewlines()
 
     private static func replaceDisplay(in html: String, context: JSContext) -> String {
         let matches = Array(html.matches(of: displayMathRegex))
         var result = html
         for match in matches.reversed() {
-            let before = String(result[result.startIndex..<match.range.lowerBound])
+            let before = String(result[result.startIndex ..< match.range.lowerBound])
             if isInsideCodeBlock(before) { continue }
 
             let expr = String(match.output.1)
@@ -79,10 +78,10 @@ enum KaTeXRenderer {
             // Skip if this is part of a $$ delimiter
             let start = match.range.lowerBound
             let end = match.range.upperBound
-            if start > result.startIndex && result[result.index(before: start)] == "$" { continue }
-            if end < result.endIndex && result[end] == "$" { continue }
+            if start > result.startIndex, result[result.index(before: start)] == "$" { continue }
+            if end < result.endIndex, result[end] == "$" { continue }
 
-            let before = String(result[result.startIndex..<start])
+            let before = String(result[result.startIndex ..< start])
             if isInsideCodeBlock(before) { continue }
 
             let expr = String(match.output.1)

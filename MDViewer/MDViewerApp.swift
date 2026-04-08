@@ -11,7 +11,9 @@ struct MDViewerApp: App {
     @State private var appState = AppState()
     @FocusedValue(\.webViewProxy) private var webProxy
 
-    private var canExport: Bool { webProxy != nil && !appState.markdown.isEmpty }
+    private var canExport: Bool {
+        webProxy != nil && !appState.markdown.isEmpty
+    }
 
     /// Default window size: ~70% of screen, clamped to reasonable bounds.
     private static var defaultWindowSize: CGSize {
@@ -51,7 +53,7 @@ struct MDViewerApp: App {
                 .onDrop(of: [.fileURL], isTargeted: nil) { providers in
                     guard let provider = providers.first else { return false }
                     _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                        guard let url = url else { return }
+                        guard let url else { return }
                         Task { @MainActor in appState.openFile(url) }
                     }
                     return true
@@ -162,7 +164,7 @@ struct SettingsView: View {
 
             LabeledContent("Body Font Size") {
                 HStack {
-                    Slider(value: $bodyFontSize, in: 12...24, step: 1)
+                    Slider(value: $bodyFontSize, in: 12 ... 24, step: 1)
                     Text("\(Int(bodyFontSize))px")
                         .monospacedDigit()
                         .frame(width: 40, alignment: .trailing)
@@ -171,7 +173,7 @@ struct SettingsView: View {
 
             LabeledContent("Code Font Size") {
                 HStack {
-                    Slider(value: $codeFontSize, in: 10...20, step: 1)
+                    Slider(value: $codeFontSize, in: 10 ... 20, step: 1)
                     Text("\(Int(codeFontSize))px")
                         .monospacedDigit()
                         .frame(width: 40, alignment: .trailing)
@@ -205,8 +207,11 @@ struct SettingsView: View {
 // MARK: - App Delegate
 
 class AppDelegate: NSObject, NSApplicationDelegate {
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
-    func applicationDidFinishLaunching(_ notification: Notification) {
+    func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool {
+        true
+    }
+
+    func applicationDidFinishLaunching(_: Notification) {
         AppState.applyAppearance(UserDefaults.standard.string(forKey: "appearance") ?? "auto")
     }
 }
@@ -266,7 +271,7 @@ class AppState {
 
     func openFile(_ url: URL) {
         switch MarkdownRenderer.readMarkdownFile(at: url) {
-        case .success(let text):
+        case let .success(text):
             markdown = text
             fileURL = url
             windowTitle = url.lastPathComponent
@@ -294,7 +299,7 @@ class AppState {
             guard let self else { return }
             // Small delay — editors may still be writing
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                if case .success(let text) = MarkdownRenderer.readMarkdownFile(at: url) {
+                if case let .success(text) = MarkdownRenderer.readMarkdownFile(at: url) {
                     self.markdown = text
                 }
                 // Re-watch: editors often write-to-temp + rename,

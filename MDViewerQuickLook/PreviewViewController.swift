@@ -2,17 +2,15 @@ import Cocoa
 @preconcurrency import QuickLookUI
 
 class PreviewViewController: NSViewController, @preconcurrency QLPreviewingController {
-
     func providePreview(for request: QLFilePreviewRequest) async throws -> QLPreviewReply {
         let fileURL = request.fileURL
         let bundle = Bundle(for: type(of: self))
 
-        let html: String
-        switch MarkdownRenderer.readMarkdownFile(at: fileURL) {
-        case .success(let markdown):
-            html = MarkdownRenderer.buildSelfContainedHTML(markdown: markdown, bundle: bundle, baseURL: fileURL, options: .fromDefaults())
-        case .failure(let error):
-            html = MarkdownRenderer.errorHTML(message: error.localizedDescription)
+        let html: String = switch MarkdownRenderer.readMarkdownFile(at: fileURL) {
+        case let .success(markdown):
+            MarkdownRenderer.buildSelfContainedHTML(markdown: markdown, bundle: bundle, baseURL: fileURL, options: .fromDefaults())
+        case let .failure(error):
+            MarkdownRenderer.errorHTML(message: error.localizedDescription)
         }
 
         let screenHeight = NSScreen.main?.visibleFrame.height ?? 900

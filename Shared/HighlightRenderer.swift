@@ -7,7 +7,6 @@ import RegexBuilder
 /// calls `hljs.highlight(code, {language: xxx})` for each, and replaces
 /// with highlighted HTML. No browser-side JavaScript needed.
 enum HighlightRenderer {
-
     static func highlight(in html: String, bundle: Bundle = .main) -> String {
         guard html.contains("<code") else { return html }
         guard let ctx = cache.context(bundle: bundle) else { return html }
@@ -49,7 +48,7 @@ enum HighlightRenderer {
         globalName: "hljs"
     )
 
-    nonisolated(unsafe) private static let codeBlockRegex = Regex {
+    private nonisolated(unsafe) static let codeBlockRegex = Regex {
         "<pre><code class=\"language-"
         Capture { OneOrMore(.reluctant) { /[^"]/ } }
         "\">"

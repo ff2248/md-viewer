@@ -1,4 +1,4 @@
-.PHONY: build install uninstall clean generate
+.PHONY: build install uninstall clean generate format
 
 SCHEME = MDViewer
 CONFIG = Release
@@ -37,6 +37,12 @@ uninstall:
 	@rm -rf "$(INSTALL_DIR)/$(APP_NAME)"
 	@qlmanage -r >/dev/null 2>&1
 	@echo "MDViewer uninstalled."
+
+# Format Swift code
+format:
+	@command -v swiftformat >/dev/null || { echo "Error: swiftformat not found. Install via: brew install swiftformat"; exit 1; }
+	@swiftformat MDViewer Shared MDViewerQuickLook Tests --swiftversion 6
+	@echo "Formatted."
 
 # Clean build artifacts
 clean:

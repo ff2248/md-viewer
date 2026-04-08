@@ -1,8 +1,7 @@
-import XCTest
 @testable import MDViewer
+import XCTest
 
 final class MarkdownRendererTests: XCTestCase {
-
     // MARK: - errorHTML
 
     func testErrorHTMLContainsMessage() {
@@ -23,7 +22,7 @@ final class MarkdownRendererTests: XCTestCase {
         try? "# Test".write(to: tempFile, atomically: true, encoding: .utf8)
         defer { try? FileManager.default.removeItem(at: tempFile) }
 
-        if case .success(let text) = MarkdownRenderer.readMarkdownFile(at: tempFile) {
+        if case let .success(text) = MarkdownRenderer.readMarkdownFile(at: tempFile) {
             XCTAssertEqual(text, "# Test")
         } else {
             XCTFail("Expected success")
@@ -127,5 +126,4 @@ final class MarkdownRendererTests: XCTestCase {
         let html = MarkdownRenderer.buildSelfContainedHTML(markdown: "test", bundle: bundle)
         XCTAssertTrue(html.contains("hljs"))
     }
-
 }

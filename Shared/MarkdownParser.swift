@@ -1,5 +1,5 @@
-import Foundation
 import CMarkGFM
+import Foundation
 
 /// Converts Markdown text to HTML using GitHub's cmark-gfm parser.
 ///
@@ -7,7 +7,6 @@ import CMarkGFM
 /// Pre-processes: YAML front matter stripping, emoji shortcode replacement.
 /// Runs natively in Swift (no JavaScript) for fast, authoritative GFM rendering.
 enum MarkdownParser {
-
     /// Parse Markdown to HTML with all GFM extensions enabled.
     /// Raw HTML is allowed; dangerous tags are filtered by GFM tagfilter.
     static func toHTML(_ markdown: String, options: RenderOptions = .defaults) -> String {
@@ -27,16 +26,16 @@ enum MarkdownParser {
     static func extractFrontMatter(_ text: inout String) -> String? {
         guard text.hasPrefix("---") else { return nil }
         let startIndex = text.index(text.startIndex, offsetBy: 3)
-        guard let endRange = text.range(of: "\n---", range: startIndex..<text.endIndex) else {
+        guard let endRange = text.range(of: "\n---", range: startIndex ..< text.endIndex) else {
             return nil
         }
-        let yaml = String(text[startIndex..<endRange.lowerBound]).trimmingCharacters(in: .newlines)
+        let yaml = String(text[startIndex ..< endRange.lowerBound]).trimmingCharacters(in: .newlines)
         text = String(text[endRange.upperBound...]).trimmingCharacters(in: .newlines)
 
         // Parse simple "key: value" lines into an HTML table
         let rows = yaml.components(separatedBy: "\n").compactMap { line -> String? in
             guard let colonIndex = line.firstIndex(of: ":") else { return nil }
-            let key = line[line.startIndex..<colonIndex].trimmingCharacters(in: .whitespaces).htmlEscaped
+            let key = line[line.startIndex ..< colonIndex].trimmingCharacters(in: .whitespaces).htmlEscaped
             let value = line[line.index(after: colonIndex)...].trimmingCharacters(in: .whitespaces).htmlEscaped
             return "<tr><td><strong>\(key)</strong></td><td>\(value)</td></tr>"
         }
@@ -54,7 +53,7 @@ enum MarkdownParser {
         }
     }
 
-    nonisolated(unsafe) private static let emojiRegex = /:([a-z0-9_+]+):/
+    private nonisolated(unsafe) static let emojiRegex = /:([a-z0-9_+]+):/
 
     // MARK: - cmark-gfm
 
