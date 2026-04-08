@@ -10,8 +10,10 @@ class PreviewViewController: NSViewController, @preconcurrency QLPreviewingContr
         let html: String
         switch MarkdownRenderer.readMarkdownFile(at: fileURL) {
         case .success(let markdown):
-            let hardBreaks = UserDefaults.standard.object(forKey: "hardBreaks") == nil || UserDefaults.standard.bool(forKey: "hardBreaks")
-            html = MarkdownRenderer.buildSelfContainedHTML(markdown: markdown, bundle: bundle, baseURL: fileURL, hardBreaks: hardBreaks)
+            let defaults = UserDefaults.standard
+            let hardBreaks = defaults.object(forKey: "hardBreaks") == nil || defaults.bool(forKey: "hardBreaks")
+            let showFrontMatter = defaults.object(forKey: "showFrontMatter") == nil || defaults.bool(forKey: "showFrontMatter")
+            html = MarkdownRenderer.buildSelfContainedHTML(markdown: markdown, bundle: bundle, baseURL: fileURL, hardBreaks: hardBreaks, showFrontMatter: showFrontMatter)
         case .failure(let error):
             html = MarkdownRenderer.errorHTML(message: error.localizedDescription)
         }

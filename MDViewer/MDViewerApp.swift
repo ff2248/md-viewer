@@ -79,6 +79,7 @@ struct MDViewerApp: App {
 private struct SettingsView: View {
     @AppStorage("appearance") private var appearance = "auto"
     @AppStorage("hardBreaks") private var hardBreaks = true
+    @AppStorage("showFrontMatter") private var showFrontMatter = true
     @AppStorage("externalEditor") private var externalEditor = "/System/Applications/TextEdit.app"
     @AppStorage("bodyFontSize") private var bodyFontSize = 16.0
     @AppStorage("codeFontSize") private var codeFontSize = 13.0
@@ -92,6 +93,7 @@ private struct SettingsView: View {
             }
 
             Toggle("Single newline as line break", isOn: $hardBreaks)
+            Toggle("Show YAML front matter", isOn: $showFrontMatter)
 
             LabeledContent("External Editor") {
                 HStack {
@@ -163,6 +165,7 @@ class AppState {
     var windowTitle = "MDViewer"
     var showSidebar = true
     var hardBreaks: Bool = true
+    var showFrontMatter: Bool = true
     var bodyFontSize: Double = 16
     var codeFontSize: Double = 13
 
@@ -173,6 +176,9 @@ class AppState {
         let defaults = UserDefaults.standard
         if defaults.object(forKey: "hardBreaks") != nil {
             hardBreaks = defaults.bool(forKey: "hardBreaks")
+        }
+        if defaults.object(forKey: "showFrontMatter") != nil {
+            showFrontMatter = defaults.bool(forKey: "showFrontMatter")
         }
         let savedBody = defaults.double(forKey: "bodyFontSize")
         if savedBody > 0 { bodyFontSize = savedBody }
@@ -189,6 +195,9 @@ class AppState {
             let d = UserDefaults.standard
             if d.object(forKey: "hardBreaks") != nil {
                 self.hardBreaks = d.bool(forKey: "hardBreaks")
+            }
+            if d.object(forKey: "showFrontMatter") != nil {
+                self.showFrontMatter = d.bool(forKey: "showFrontMatter")
             }
             let newBody = d.double(forKey: "bodyFontSize")
             if newBody > 0 { self.bodyFontSize = newBody }

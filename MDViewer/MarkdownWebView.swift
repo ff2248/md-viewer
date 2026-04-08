@@ -64,7 +64,7 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
         panel.nameFieldStringValue = title.replacingOccurrences(of: ".md", with: ".html")
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
-        let html = MarkdownRenderer.buildSelfContainedHTML(markdown: markdown, bundle: bundle, hardBreaks: hardBreaks)
+        let html = MarkdownRenderer.buildSelfContainedHTML(markdown: markdown, bundle: bundle, hardBreaks: hardBreaks, showFrontMatter: showFrontMatter)
         do {
             try html.write(to: url, atomically: true, encoding: .utf8)
         } catch {
@@ -177,6 +177,7 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
 
     var fileURL: URL?
     var hardBreaks: Bool = true
+    var showFrontMatter: Bool = true
     var bodyFontSize: Double = 16
     var codeFontSize: Double = 13
 
@@ -187,7 +188,7 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
     }
 
     private func injectMarkdown(_ markdown: String) {
-        var html = MarkdownRenderer.renderToHTML(markdown, bundle: bundle, hardBreaks: hardBreaks)
+        var html = MarkdownRenderer.renderToHTML(markdown, bundle: bundle, hardBreaks: hardBreaks, showFrontMatter: showFrontMatter)
         if let fileURL {
             html = MarkdownRenderer.inlineLocalImages(in: html, relativeTo: fileURL)
         }

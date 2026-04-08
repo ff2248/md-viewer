@@ -18,8 +18,8 @@ enum MarkdownRenderer {
     // MARK: - Rendering
 
     /// Renders Markdown to HTML via cmark-gfm, highlight.js, and KaTeX.
-    static func renderToHTML(_ markdown: String, bundle: Bundle, hardBreaks: Bool = false) -> String {
-        var html = MarkdownParser.toHTML(markdown, unsafe: true, hardBreaks: hardBreaks)
+    static func renderToHTML(_ markdown: String, bundle: Bundle, hardBreaks: Bool = false, showFrontMatter: Bool = false) -> String {
+        var html = MarkdownParser.toHTML(markdown, unsafe: true, hardBreaks: hardBreaks, showFrontMatter: showFrontMatter)
         html = HighlightRenderer.highlight(in: html, bundle: bundle)
         html = KaTeXRenderer.renderMath(in: html, bundle: bundle)
         return html
@@ -54,8 +54,8 @@ enum MarkdownRenderer {
     ///
     /// Uses string concatenation (not interpolation) because JS files
     /// contain `\(` which would break Swift string interpolation.
-    static func buildSelfContainedHTML(markdown: String, bundle: Bundle, baseURL: URL? = nil, hardBreaks: Bool = false) -> String {
-        var renderedHTML = renderToHTML(markdown, bundle: bundle, hardBreaks: hardBreaks)
+    static func buildSelfContainedHTML(markdown: String, bundle: Bundle, baseURL: URL? = nil, hardBreaks: Bool = false, showFrontMatter: Bool = false) -> String {
+        var renderedHTML = renderToHTML(markdown, bundle: bundle, hardBreaks: hardBreaks, showFrontMatter: showFrontMatter)
         if let baseURL = baseURL {
             renderedHTML = inlineLocalImages(in: renderedHTML, relativeTo: baseURL)
         }

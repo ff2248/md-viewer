@@ -16,25 +16,39 @@ enum MarkdownParser {
     ///             Dangerous tags are still filtered by GFM tagfilter.
     ///             If `false`, all raw HTML is stripped. Default is `false`.
     /// - Returns: Rendered HTML string.
-    static func toHTML(_ markdown: String, unsafe: Bool = false, hardBreaks: Bool = false) -> String {
+    static func toHTML(_ markdown: String, unsafe: Bool = false, hardBreaks: Bool = false, showFrontMatter: Bool = false) -> String {
         var text = markdown
-        text = stripFrontMatter(text)
+        let frontMatter = extractFrontMatter(&text)
         text = replaceMathCodeBlocks(text)
         text = replaceEmojiShortcodes(text)
-        return cmarkToHTML(text, unsafe: unsafe, hardBreaks: hardBreaks)
+        var html = cmarkToHTML(text, unsafe: unsafe, hardBreaks: hardBreaks)
+        if showFrontMatter, let table = frontMatter {
+            html = table + html
+        }
+        return html
     }
 
     // MARK: - Pre-processing
 
-    /// Strips YAML front matter delimited by `---` at the start of the document.
-    static func stripFrontMatter(_ text: String) -> String {
-        guard text.hasPrefix("---") else { return text }
-        // Find the closing --- (must be on its own line after the opening ---)
+    /// Extracts and removes YAML front matter. Returns an HTML table if front matter is found.
+    static func extractFrontMatter(_ text: inout String) -> String? {
+        guard text.hasPrefix("---") else { return nil }
         let startIndex = text.index(text.startIndex, offsetBy: 3)
         guard let endRange = text.range(of: "\n---", range: startIndex..<text.endIndex) else {
-            return text
+            return nil
         }
-        return String(text[endRange.upperBound...]).trimmingCharacters(in: .newlines)
+        let yaml = String(text[startIndex..<endRange.lowerBound]).trimmingCharacters(in: .newlines)
+        text = String(text[endRange.upperBound...]).trimmingCharacters(in: .newlines)
+
+        // Parse simple "key: value" lines into an HTML table
+        let rows = yaml.components(separatedBy: "\n").compactMap { line -> String? in
+            guard let colonIndex = line.firstIndex(of: ":") else { return nil }
+            let key = line[line.startIndex..<colonIndex].trimmingCharacters(in: .whitespaces).htmlEscaped
+            let value = line[line.index(after: colonIndex)...].trimmingCharacters(in: .whitespaces).htmlEscaped
+            return "<tr><td><strong>\(key)</strong></td><td>\(value)</td></tr>"
+        }
+        guard !rows.isEmpty else { return nil }
+        return "<table>\(rows.joined())</table>\n"
     }
 
     /// Converts ` ```math ` code blocks to `$$...$$` so KaTeX can render them.

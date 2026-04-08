@@ -26,6 +26,7 @@ struct ContentView: View {
                 webProxy.onHeadingsLoaded = { self.headings = $0 }
                 webProxy.fileURL = appState.fileURL
                 webProxy.hardBreaks = appState.hardBreaks
+                webProxy.showFrontMatter = appState.showFrontMatter
                 webProxy.bodyFontSize = appState.bodyFontSize
                 webProxy.codeFontSize = appState.codeFontSize
             }
@@ -34,6 +35,10 @@ struct ContentView: View {
             }
             .onChange(of: appState.hardBreaks) {
                 webProxy.hardBreaks = appState.hardBreaks
+                webProxy.forceRerender(markdown: appState.markdown)
+            }
+            .onChange(of: appState.showFrontMatter) {
+                webProxy.showFrontMatter = appState.showFrontMatter
                 webProxy.forceRerender(markdown: appState.markdown)
             }
             .onChange(of: appState.bodyFontSize) {
