@@ -177,9 +177,21 @@ private struct SettingsView: View {
 // MARK: - App Delegate
 
 class AppDelegate: NSObject, NSApplicationDelegate {
+    private var windowObserver: Any?
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppState.applyAppearance(UserDefaults.standard.string(forKey: "appearance") ?? "auto")
+
+        // Quit when the main window closes, even if Settings is still open
+        windowObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification, object: nil, queue: .main
+        ) { notification in
+            guard let window = notification.object as? NSWindow,
+                  window.identifier?.rawValue != "com_apple_SwiftUI_Settings_window" else { return }
+            NSApp.terminate(nil)
+        }
     }
 }
 
