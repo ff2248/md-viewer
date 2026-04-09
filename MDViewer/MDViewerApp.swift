@@ -111,23 +111,14 @@ struct MDViewerApp: App {
 
                 Divider()
 
-                Button("Zoom In") {
-                    appState.bodyFontSize = min(appState.bodyFontSize + 1, 24)
-                    UserDefaults.standard.set(appState.bodyFontSize, forKey: "bodyFontSize")
-                }
-                .keyboardShortcut("+", modifiers: .command)
+                Button("Zoom In") { appState.zoomIn() }
+                    .keyboardShortcut("+", modifiers: .command)
 
-                Button("Zoom Out") {
-                    appState.bodyFontSize = max(appState.bodyFontSize - 1, 12)
-                    UserDefaults.standard.set(appState.bodyFontSize, forKey: "bodyFontSize")
-                }
-                .keyboardShortcut("-", modifiers: .command)
+                Button("Zoom Out") { appState.zoomOut() }
+                    .keyboardShortcut("-", modifiers: .command)
 
-                Button("Actual Size") {
-                    appState.bodyFontSize = RenderOptions.defaults.bodyFontSize
-                    UserDefaults.standard.set(appState.bodyFontSize, forKey: "bodyFontSize")
-                }
-                .keyboardShortcut("0", modifiers: .command)
+                Button("Actual Size") { appState.resetZoom() }
+                    .keyboardShortcut("0", modifiers: .command)
             }
         }
     }
@@ -136,12 +127,12 @@ struct MDViewerApp: App {
 // MARK: - Settings
 
 struct SettingsView: View {
-    @AppStorage("appearance") private var appearance = "auto"
-    @AppStorage("hardBreaks") private var hardBreaks = RenderOptions.defaults.hardBreaks
-    @AppStorage("showFrontMatter") private var showFrontMatter = RenderOptions.defaults.showFrontMatter
-    @AppStorage("externalEditor") private var externalEditor = "/System/Applications/TextEdit.app"
-    @AppStorage("bodyFontSize") private var bodyFontSize = RenderOptions.defaults.bodyFontSize
-    @AppStorage("codeFontSize") private var codeFontSize = RenderOptions.defaults.codeFontSize
+    @AppStorage(SettingsKey.appearance) private var appearance = "auto"
+    @AppStorage(SettingsKey.hardBreaks) private var hardBreaks = RenderOptions.defaults.hardBreaks
+    @AppStorage(SettingsKey.showFrontMatter) private var showFrontMatter = RenderOptions.defaults.showFrontMatter
+    @AppStorage(SettingsKey.externalEditor) private var externalEditor = RenderOptions.defaultExternalEditor
+    @AppStorage(SettingsKey.bodyFontSize) private var bodyFontSize = RenderOptions.defaults.bodyFontSize
+    @AppStorage(SettingsKey.codeFontSize) private var codeFontSize = RenderOptions.defaults.codeFontSize
 
     var body: some View {
         Form {
@@ -164,19 +155,19 @@ struct SettingsView: View {
 
             LabeledContent("Body Font Size") {
                 HStack {
-                    Slider(value: $bodyFontSize, in: 12 ... 24, step: 1)
+                    Slider(value: $bodyFontSize, in: RenderOptions.bodyFontSizeRange, step: 1)
                     Text("\(Int(bodyFontSize))px")
                         .monospacedDigit()
-                        .frame(width: 40, alignment: .trailing)
+                        .frame(minWidth: 32, alignment: .trailing)
                 }
             }
 
             LabeledContent("Code Font Size") {
                 HStack {
-                    Slider(value: $codeFontSize, in: 10 ... 20, step: 1)
+                    Slider(value: $codeFontSize, in: RenderOptions.codeFontSizeRange, step: 1)
                     Text("\(Int(codeFontSize))px")
                         .monospacedDigit()
-                        .frame(width: 40, alignment: .trailing)
+                        .frame(minWidth: 32, alignment: .trailing)
                 }
             }
         }
@@ -212,7 +203,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_: Notification) {
-        AppState.applyAppearance(UserDefaults.standard.string(forKey: "appearance") ?? "auto")
+        AppState.applyAppearance(UserDefaults.standard.string(forKey: SettingsKey.appearance) ?? "auto")
     }
 }
 
@@ -241,7 +232,7 @@ class AppState {
 
     init() {
         syncFromDefaults()
-        Self.applyAppearance(UserDefaults.standard.string(forKey: "appearance") ?? "auto")
+        Self.applyAppearance(UserDefaults.standard.string(forKey: SettingsKey.appearance) ?? "auto")
 
         defaultsObserver = NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification, object: nil, queue: .main
@@ -269,6 +260,25 @@ class AppState {
         }
     }
 
+    // MARK: - Zoom
+
+    func zoomIn() {
+        bodyFontSize = min(bodyFontSize + 1, RenderOptions.bodyFontSizeRange.upperBound)
+        UserDefaults.standard.set(bodyFontSize, forKey: SettingsKey.bodyFontSize)
+    }
+
+    func zoomOut() {
+        bodyFontSize = max(bodyFontSize - 1, RenderOptions.bodyFontSizeRange.lowerBound)
+        UserDefaults.standard.set(bodyFontSize, forKey: SettingsKey.bodyFontSize)
+    }
+
+    func resetZoom() {
+        bodyFontSize = RenderOptions.defaults.bodyFontSize
+        UserDefaults.standard.set(bodyFontSize, forKey: SettingsKey.bodyFontSize)
+    }
+
+    // MARK: - File Operations
+
     func openFile(_ url: URL) {
         switch MarkdownRenderer.readMarkdownFile(at: url) {
         case let .success(text):
@@ -285,36 +295,9 @@ class AppState {
         }
     }
 
-    private func watchFile(_ url: URL) {
-        fileWatcher?.cancel()
-        fileWatcher = nil
-
-        let fd = open(url.path, O_EVTONLY)
-        guard fd >= 0 else { return }
-
-        let source = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: fd, eventMask: [.write, .rename, .delete], queue: .main
-        )
-        source.setEventHandler { [weak self] in
-            guard let self else { return }
-            // Small delay — editors may still be writing
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                if case let .success(text) = MarkdownRenderer.readMarkdownFile(at: url) {
-                    self.markdown = text
-                }
-                // Re-watch: editors often write-to-temp + rename,
-                // which replaces the inode and invalidates this watcher
-                self.watchFile(url)
-            }
-        }
-        source.setCancelHandler { close(fd) }
-        source.resume()
-        fileWatcher = source
-    }
-
     func openInExternalEditor() {
         guard let url = fileURL else { return }
-        let editorPath = UserDefaults.standard.string(forKey: "externalEditor") ?? "/System/Applications/TextEdit.app"
+        let editorPath = UserDefaults.standard.string(forKey: SettingsKey.externalEditor) ?? RenderOptions.defaultExternalEditor
         let editorURL = URL(filePath: editorPath)
         NSWorkspace.shared.open([url], withApplicationAt: editorURL, configuration: NSWorkspace.OpenConfiguration())
     }
@@ -327,5 +310,31 @@ class AppState {
         if panel.runModal() == .OK, let url = panel.url {
             openFile(url)
         }
+    }
+
+    // MARK: - File Watcher
+
+    private func watchFile(_ url: URL) {
+        fileWatcher?.cancel()
+        fileWatcher = nil
+
+        let fd = open(url.path, O_EVTONLY)
+        guard fd >= 0 else { return }
+
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fd, eventMask: [.write, .rename, .delete], queue: .main
+        )
+        source.setEventHandler { [weak self] in
+            guard let self else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                if case let .success(text) = MarkdownRenderer.readMarkdownFile(at: url) {
+                    self.markdown = text
+                }
+                self.watchFile(url)
+            }
+        }
+        source.setCancelHandler { close(fd) }
+        source.resume()
+        fileWatcher = source
     }
 }

@@ -58,7 +58,7 @@ struct ContentView: View {
     // MARK: - Empty State
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
+        VStack {
             Text("Drop a .md file here")
                 .font(.title2)
                 .foregroundStyle(.secondary)
@@ -78,11 +78,11 @@ struct ContentView: View {
                     Image(systemName: collapsedIDs.contains(heading.id) ? "chevron.right" : "chevron.down")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
-                        .frame(width: 20, height: 20)
+                        .frame(width: 16)
                         .contentShape(Rectangle())
                         .onTapGesture { toggleCollapse(heading) }
                 } else {
-                    Spacer().frame(width: 20)
+                    Spacer().frame(width: 16)
                 }
                 Text(heading.text)
                     .font(fontForLevel(heading.level))
@@ -109,8 +109,8 @@ struct ContentView: View {
 
                 Spacer()
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
+            .padding(.horizontal)
+            .padding(.vertical, 4)
         }
         .background(.bar)
     }
@@ -139,10 +139,12 @@ struct ContentView: View {
         return headings[idx + 1].level > heading.level
     }
 
+    private static let collapseAnimationDuration: Double = 0.15
+
     private func footerButton(_ icon: String, help: String, disabled: Bool = false, action: @escaping () -> Void) -> some View {
-        Button { withAnimation(.easeInOut(duration: 0.15)) { action() } } label: {
+        Button { withAnimation(.easeInOut(duration: Self.collapseAnimationDuration)) { action() } } label: {
             Image(systemName: icon)
-                .frame(width: 20, height: 20)
+                .frame(width: 16)
         }
         .buttonStyle(.plain)
         .disabled(disabled)
@@ -158,7 +160,7 @@ struct ContentView: View {
     }
 
     private func toggleCollapse(_ heading: Heading) {
-        withAnimation(.easeInOut(duration: 0.15)) {
+        withAnimation(.easeInOut(duration: Self.collapseAnimationDuration)) {
             if collapsedIDs.contains(heading.id) {
                 collapsedIDs.remove(heading.id)
             } else {

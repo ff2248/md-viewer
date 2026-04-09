@@ -182,7 +182,7 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
 
         // Relative .md links — open in MDViewer
         let ext = (href as NSString).pathExtension.lowercased()
-        if let fileURL, ["md", "markdown", "mdown", "mkd"].contains(ext) {
+        if let fileURL, RenderOptions.markdownExtensions.contains(ext) {
             let resolved = fileURL.deletingLastPathComponent().appendingPathComponent(href)
             if FileManager.default.fileExists(atPath: resolved.path) {
                 Task { @MainActor in self.onOpenRelativeFile?(resolved) }
