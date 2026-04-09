@@ -172,27 +172,13 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
     }
 
     private func handleLinkClick(_ href: String) {
-        // External URLs — open in browser
-        if href.hasPrefix("http://") || href.hasPrefix("https://") {
-            if let url = URL(string: href) {
-                NSWorkspace.shared.open(url)
-            }
-            return
-        }
-
-        // Relative .md links — open in MDViewer
-        let ext = (href as NSString).pathExtension.lowercased()
-        if let fileURL, RenderOptions.markdownExtensions.contains(ext) {
-            let resolved = fileURL.deletingLastPathComponent().appendingPathComponent(href)
-            if FileManager.default.fileExists(atPath: resolved.path) {
-                Task { @MainActor in self.onOpenRelativeFile?(resolved) }
-                return
-            }
-        }
-
-        // Fallback — try opening as URL
-        if let url = URL(string: href) {
+        switch LinkRouter.classify(href, relativeTo: fileURL) {
+        case let .openExternal(url):
             NSWorkspace.shared.open(url)
+        case let .openMarkdownFile(url):
+            Task { @MainActor in self.onOpenRelativeFile?(url) }
+        case .ignored:
+            break
         }
     }
 

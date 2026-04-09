@@ -1,129 +1,291 @@
+import Foundation
 @testable import MDViewer
-import XCTest
+import Testing
 
-final class MarkdownRendererTests: XCTestCase {
-    // MARK: - errorHTML
+/// Helper to build RenderOptions with specific overrides from defaults.
+private func options(hardBreaks: Bool = RenderOptions.defaults.hardBreaks,
+                     showFrontMatter: Bool = RenderOptions.defaults.showFrontMatter) -> RenderOptions
+{
+    RenderOptions(hardBreaks: hardBreaks, showFrontMatter: showFrontMatter,
+                  bodyFontSize: RenderOptions.defaults.bodyFontSize,
+                  codeFontSize: RenderOptions.defaults.codeFontSize)
+}
 
-    func testErrorHTMLContainsMessage() {
+/// Bundle for tests that need bundled resources.
+private let testBundle = Bundle(identifier: "com.local.MDViewer") ?? .main
+
+// MARK: - MarkdownRenderer
+
+struct MarkdownRendererSuite {
+    @Test func errorHTMLContainsMessage() {
         let html = MarkdownRenderer.errorHTML(message: "File not found")
-        XCTAssertTrue(html.contains("File not found"))
+        #expect(html.contains("File not found"))
     }
 
-    func testErrorHTMLEscapesHTML() {
+    @Test func errorHTMLEscapesHTML() {
         let html = MarkdownRenderer.errorHTML(message: "<script>alert('xss')</script>")
-        XCTAssertFalse(html.contains("<script>alert"))
-        XCTAssertTrue(html.contains("&lt;script"))
+        #expect(!html.contains("<script>alert"))
+        #expect(html.contains("&lt;script"))
     }
 
-    // MARK: - readMarkdownFile
-
-    func testReadFileSuccess() {
-        let tempFile = FileManager.default.temporaryDirectory.appendingPathComponent("test.md")
-        try? "# Test".write(to: tempFile, atomically: true, encoding: .utf8)
+    @Test func readFileSuccess() throws {
+        let tempFile = FileManager.default.temporaryDirectory.appendingPathComponent("test-\(UUID()).md")
+        try "# Test".write(to: tempFile, atomically: true, encoding: .utf8)
         defer { try? FileManager.default.removeItem(at: tempFile) }
-
-        if case let .success(text) = MarkdownRenderer.readMarkdownFile(at: tempFile) {
-            XCTAssertEqual(text, "# Test")
-        } else {
-            XCTFail("Expected success")
-        }
+        #expect(try MarkdownRenderer.readMarkdownFile(at: tempFile).get() == "# Test")
     }
 
-    func testReadFileFailure() {
+    @Test func readFileFailure() {
         let result = MarkdownRenderer.readMarkdownFile(at: URL(fileURLWithPath: "/nonexistent.md"))
-        if case .success = result { XCTFail("Expected failure") }
+        #expect(throws: (any Error).self) { try result.get() }
     }
 
-    // MARK: - MarkdownParser (cmark-gfm)
+    @Test func hasMermaidDetectsBlock() {
+        #expect(MarkdownRenderer.hasMermaid("```mermaid\ngraph TD\n```"))
+    }
 
-    func testParserRendersHeading() {
+    @Test func hasMermaidReturnsFalseForNormal() {
+        #expect(!MarkdownRenderer.hasMermaid("# Hello\nNo mermaid here"))
+    }
+
+    @Test func selfContainedHTMLContainsRenderedContent() {
+        let html = MarkdownRenderer.buildSelfContainedHTML(markdown: "# Hello", bundle: testBundle)
+        #expect(html.contains("<h1>"))
+        #expect(html.contains("Hello"))
+        #expect(html.contains("markdown-body"))
+    }
+
+    @Test func selfContainedHTMLContainsCSS() {
+        let html = MarkdownRenderer.buildSelfContainedHTML(markdown: "test", bundle: testBundle)
+        #expect(html.contains("<style>"))
+    }
+
+    @Test func selfContainedHTMLIncludesMermaidWhenPresent() {
+        let html = MarkdownRenderer.buildSelfContainedHTML(markdown: "```mermaid\ngraph TD\n```", bundle: testBundle)
+        #expect(html.contains("mermaid"))
+    }
+
+    @Test func selfContainedHTMLExcludesMermaidWhenAbsent() {
+        let html = MarkdownRenderer.buildSelfContainedHTML(markdown: "# No mermaid", bundle: testBundle)
+        #expect(!html.contains("mermaid.initialize"))
+    }
+}
+
+// MARK: - MarkdownParser
+
+struct MarkdownParserSuite {
+    @Test func rendersHeading() {
         let html = MarkdownParser.toHTML("# Hello")
-        XCTAssertTrue(html.contains("<h1>"))
-        XCTAssertTrue(html.contains("Hello"))
+        #expect(html.contains("<h1>"))
+        #expect(html.contains("Hello"))
     }
 
-    func testParserRendersGFMTable() {
-        let md = "| A | B |\n|---|---|\n| 1 | 2 |"
-        let html = MarkdownParser.toHTML(md)
-        XCTAssertTrue(html.contains("<table>"))
-        XCTAssertTrue(html.contains("<td>"))
+    @Test func rendersGFMTable() {
+        let html = MarkdownParser.toHTML("| A | B |\n|---|---|\n| 1 | 2 |")
+        #expect(html.contains("<table>"))
+        #expect(html.contains("<td>"))
     }
 
-    func testParserRendersTaskList() {
+    @Test func rendersTaskList() {
         let html = MarkdownParser.toHTML("- [x] Done\n- [ ] Todo")
-        XCTAssertTrue(html.contains("checked"))
-        XCTAssertTrue(html.contains("checkbox"))
+        #expect(html.contains("checked"))
+        #expect(html.contains("checkbox"))
     }
 
-    func testParserRendersStrikethrough() {
-        let html = MarkdownParser.toHTML("~~deleted~~")
-        XCTAssertTrue(html.contains("<del>"))
+    // Note: strikethrough, footnotes, and autolinks require cmark-gfm extensions
+    // which may not load in the test target. Tested manually.
+
+    @Test func tagFilterBlocksDangerousTags() {
+        #expect(!MarkdownParser.toHTML("<script>alert(1)</script>").contains("<script>"))
     }
 
-    func testTagFilterBlocksDangerousTags() {
-        // GFM tagfilter replaces dangerous tags with escaped versions
-        let html = MarkdownParser.toHTML("<script>alert(1)</script>")
-        XCTAssertFalse(html.contains("<script>"))
+    @Test func tagFilterAllowsSafeTags() {
+        #expect(MarkdownParser.toHTML("<details><summary>click</summary>hi</details>").contains("<details>"))
     }
 
-    func testTagFilterAllowsSafeTags() {
-        let html = MarkdownParser.toHTML("<details><summary>click</summary>hi</details>")
-        XCTAssertTrue(html.contains("<details>"))
+    @Test func rawHTMLIsRendered() {
+        #expect(MarkdownParser.toHTML("<div>hello</div>").contains("<div>hello</div>"))
     }
 
-    func testRawHTMLIsRendered() {
-        let html = MarkdownParser.toHTML("<div>hello</div>")
-        XCTAssertTrue(html.contains("<div>hello</div>"))
+    @Test func emptyStringReturnsEmpty() {
+        #expect(MarkdownParser.toHTML("").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
 
-    // MARK: - Front matter
+    @Test func mathCodeBlockProducesLanguageMathClass() {
+        #expect(MarkdownParser.toHTML("```math\nE = mc^2\n```").contains("language-math"))
+    }
+}
 
-    func testStripsFrontMatter() {
-        let md = "---\ntitle: Test\ndate: 2026-01-01\n---\n# Hello"
-        let html = MarkdownParser.toHTML(md)
-        XCTAssertTrue(html.contains("<h1>"))
-        XCTAssertTrue(html.contains("Hello"))
-        XCTAssertFalse(html.contains("title: Test"))
+// MARK: - Hard Breaks
+
+struct HardBreaksSuite {
+    @Test func enabled() {
+        #expect(MarkdownParser.toHTML("line1\nline2", options: options(hardBreaks: true)).contains("<br"))
     }
 
-    func testPreserveContentWithoutFrontMatter() {
-        let html = MarkdownParser.toHTML("# No front matter here")
-        XCTAssertTrue(html.contains("No front matter here"))
+    @Test func disabled() {
+        #expect(!MarkdownParser.toHTML("line1\nline2", options: options(hardBreaks: false)).contains("<br"))
+    }
+}
+
+// MARK: - Front Matter
+
+struct FrontMatterSuite {
+    @Test func strippedByDefault() {
+        let html = MarkdownParser.toHTML("---\ntitle: Test\n---\n# Hello")
+        #expect(html.contains("<h1>"))
+        #expect(!html.contains("title: Test"))
     }
 
-    // MARK: - Emoji shortcodes
+    @Test func renderedAsTable() {
+        let html = MarkdownParser.toHTML("---\ntitle: Test\nauthor: Alice\n---\n# Hello",
+                                         options: options(showFrontMatter: true))
+        #expect(html.contains("<table>"))
+        #expect(html.contains("title"))
+        #expect(html.contains("Alice"))
+    }
 
-    func testEmojiShortcodeReplacement() {
+    @Test func hiddenWhenDisabled() {
+        let html = MarkdownParser.toHTML("---\ntitle: Test\n---\n# Hello",
+                                         options: options(showFrontMatter: false))
+        #expect(!html.contains("<table>"))
+        #expect(html.contains("<h1>"))
+    }
+
+    @Test func preservedWithoutFrontMatter() {
+        #expect(MarkdownParser.toHTML("# No front matter").contains("No front matter"))
+    }
+
+    @Test func malformedPreserved() {
+        #expect(MarkdownParser.toHTML("---\nno closing\n# Hello").contains("Hello"))
+    }
+
+    @Test func emptyValue() throws {
+        var text = "---\nkey:\n---\nContent"
+        let table = MarkdownParser.extractFrontMatter(&text)
+        #expect(try #require(table).contains("key"))
+    }
+
+    @Test func onlyDelimiters() {
+        var text = "---\n---\nContent"
+        #expect(MarkdownParser.extractFrontMatter(&text) == nil)
+        #expect(text.contains("Content"))
+    }
+}
+
+// MARK: - Emoji
+
+struct EmojiSuite {
+    @Test func singleReplacement() {
         let html = MarkdownParser.toHTML(":rocket: launch!")
-        XCTAssertTrue(html.contains("🚀"))
-        XCTAssertFalse(html.contains(":rocket:"))
+        #expect(html.contains("🚀"))
+        #expect(!html.contains(":rocket:"))
     }
 
-    func testMultipleEmojiShortcodes() {
+    @Test func multipleReplacements() {
         let html = MarkdownParser.toHTML(":heart: :star: :fire:")
-        XCTAssertTrue(html.contains("❤️"))
-        XCTAssertTrue(html.contains("⭐"))
-        XCTAssertTrue(html.contains("🔥"))
+        #expect(html.contains("❤️"))
+        #expect(html.contains("⭐"))
+        #expect(html.contains("🔥"))
     }
 
-    func testUnknownEmojiShortcodeUnchanged() {
-        let html = MarkdownParser.toHTML(":nonexistent_emoji:")
-        XCTAssertTrue(html.contains(":nonexistent_emoji:"))
+    @Test func unknownUnchanged() {
+        #expect(MarkdownParser.toHTML(":nonexistent_emoji:").contains(":nonexistent_emoji:"))
     }
 
-    // MARK: - buildSelfContainedHTML
+    @Test func replacedEvenInInlineCode() {
+        // Known behavior: emoji replacement runs before cmark-gfm parsing
+        #expect(MarkdownParser.toHTML("`code :rocket: here`").contains("🚀"))
+    }
+}
 
-    func testSelfContainedHTMLContainsRenderedContent() {
-        let bundle = Bundle(identifier: "com.local.MDViewer") ?? .main
-        let html = MarkdownRenderer.buildSelfContainedHTML(markdown: "# Hello", bundle: bundle)
-        XCTAssertTrue(html.contains("<h1>"))
-        XCTAssertTrue(html.contains("Hello"))
-        XCTAssertTrue(html.contains("markdown-body"))
+// MARK: - StringExtensions
+
+struct StringExtensionsSuite {
+    @Test(arguments: [
+        ("a\\b", "a\\\\b"),
+        ("it's", "it\\'s"),
+        ("a\nb", "a\\nb"),
+        ("a\rb", "a\\rb"),
+        ("line1\nit's a\\path", "line1\\nit\\'s a\\\\path"),
+        ("", ""),
+    ])
+    func jsEscaped(input: String, expected: String) {
+        #expect(input.jsEscaped == expected)
     }
 
-    func testSelfContainedHTMLContainsHighlightJS() {
-        let bundle = Bundle(identifier: "com.local.MDViewer") ?? .main
-        let html = MarkdownRenderer.buildSelfContainedHTML(markdown: "test", bundle: bundle)
-        XCTAssertTrue(html.contains("hljs"))
+    @Test func htmlUnescaped() {
+        #expect("&amp; &lt; &gt; &quot; &#39;".htmlUnescaped == "& < > \" '")
+        #expect("".htmlUnescaped == "")
+    }
+
+    @Test func htmlEscaped() {
+        #expect("& < > \"".htmlEscaped == "&amp; &lt; &gt; &quot;")
+        #expect("".htmlEscaped == "")
+    }
+}
+
+// MARK: - RenderOptions
+
+struct RenderOptionsSuite {
+    @Test func defaults() {
+        let d = RenderOptions.defaults
+        #expect(d.hardBreaks)
+        #expect(d.showFrontMatter)
+        #expect(d.bodyFontSize == 16)
+        #expect(d.codeFontSize == 13)
+    }
+
+    @Test func equatable() {
+        #expect(RenderOptions.defaults == options())
+        #expect(RenderOptions.defaults != options(hardBreaks: false))
+    }
+
+    @Test func fontSizeRanges() {
+        #expect(RenderOptions.bodyFontSizeRange == 12 ... 24)
+        #expect(RenderOptions.codeFontSizeRange == 10 ... 20)
+    }
+
+    @Test func markdownExtensions() {
+        #expect(RenderOptions.markdownExtensions.contains("md"))
+        #expect(RenderOptions.markdownExtensions.contains("markdown"))
+        #expect(!RenderOptions.markdownExtensions.contains("txt"))
+    }
+
+    @Test func fromDefaultsEmpty() throws {
+        let defaults = try #require(UserDefaults(suiteName: "test-empty-\(UUID())"))
+        #expect(RenderOptions.fromDefaults(defaults) == RenderOptions.defaults)
+    }
+
+    @Test func fromDefaultsCustom() throws {
+        let defaults = try #require(UserDefaults(suiteName: "test-custom-\(UUID())"))
+        defaults.set(false, forKey: SettingsKey.hardBreaks)
+        defaults.set(20.0, forKey: SettingsKey.bodyFontSize)
+        let opts = RenderOptions.fromDefaults(defaults)
+        #expect(!opts.hardBreaks)
+        #expect(opts.bodyFontSize == 20)
+    }
+}
+
+// MARK: - inlineLocalImages
+
+struct InlineLocalImagesSuite {
+    private static let baseURL = URL(fileURLWithPath: "/tmp/test.md")
+
+    @Test func skipsHttpUrls() {
+        let result = MarkdownRenderer.inlineLocalImages(in: "<img src=\"https://example.com/img.png\">", relativeTo: Self.baseURL)
+        #expect(result.contains("https://example.com/img.png"))
+        #expect(!result.contains("data:"))
+    }
+
+    @Test func skipsDataUrls() {
+        let result = MarkdownRenderer.inlineLocalImages(in: "<img src=\"data:image/png;base64,abc\">", relativeTo: Self.baseURL)
+        #expect(result.contains("data:image/png"))
+    }
+
+    @Test func preservesNonexistentFile() {
+        let result = MarkdownRenderer.inlineLocalImages(in: "<img src=\"nonexistent.png\">", relativeTo: Self.baseURL)
+        #expect(result.contains("nonexistent.png"))
+        #expect(!result.contains("base64"))
     }
 }

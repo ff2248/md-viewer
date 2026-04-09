@@ -1,4 +1,4 @@
-.PHONY: build install uninstall clean generate format
+.PHONY: build install uninstall clean generate format test
 
 SCHEME = MDViewer
 CONFIG = Release
@@ -37,6 +37,17 @@ uninstall:
 	@rm -rf "$(INSTALL_DIR)/$(APP_NAME)"
 	@qlmanage -r >/dev/null 2>&1
 	@echo "MDViewer uninstalled."
+
+# Run tests with coverage
+RESULT_BUNDLE = /tmp/mdviewer-test.xcresult
+test: generate
+	@rm -rf $(RESULT_BUNDLE)
+	@xcodebuild -project MDViewer.xcodeproj -scheme $(SCHEME) -configuration Debug \
+		-enableCodeCoverage YES -resultBundlePath $(RESULT_BUNDLE) \
+		test 2>&1 | grep -E "Test run|passed|failed|✔|✘" | tail -5
+	@echo ""
+	@echo "Coverage:"
+	@xcrun xccov view --report $(RESULT_BUNDLE) 2>/dev/null | grep "MDViewer.app" | awk '{for(i=1;i<=NF;i++) if($$i ~ /%/) print "  " $$i}' || echo "  (coverage data unavailable)"
 
 # Format Swift code
 format:
