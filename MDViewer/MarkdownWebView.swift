@@ -13,6 +13,7 @@ struct Heading: Identifiable, Equatable {
 /// At init: creates WKWebView + loads template (CSS only).
 /// Also pre-warms HighlightRenderer and KaTeXRenderer JSContexts in background.
 /// When user opens a file: Swift pre-renders everything → WKWebView just sets innerHTML.
+@MainActor
 class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMessageHandler {
     let webView: WKWebView
     var onHeadingsLoaded: (([Heading]) -> Void)?
@@ -25,11 +26,14 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
     private let bundle: Bundle
 
     private static var cachedMermaidJS: String?
+    private static let processPool = WKProcessPool()
 
     init(bundle: Bundle = .main) {
         self.bundle = bundle
 
         let config = WKWebViewConfiguration()
+        config.processPool = Self.processPool
+        config.websiteDataStore = .nonPersistent()
         let uc = WKUserContentController()
         config.userContentController = uc
 
@@ -38,8 +42,15 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
 
         super.init()
 
-        uc.add(self, name: "headings")
-        uc.add(self, name: "linkClicked")
+        let weakHandler = WeakScriptMessageHandler(self)
+        uc.add(weakHandler, name: "headings")
+        uc.add(weakHandler, name: "linkClicked")
+        // Prevent web content from handling drops
+        uc.addUserScript(WKUserScript(
+            source: "document.addEventListener('dragover',function(e){e.preventDefault()},true);document.addEventListener('drop',function(e){e.preventDefault()},true);",
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        ))
         webView.navigationDelegate = self
 
         // 1. Start loading template + CSS immediately
@@ -155,9 +166,7 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
                   let text = item["text"] as? String else { return nil }
             return Heading(id: id, level: level, text: text)
         }
-        Task { @MainActor in
-            self.onHeadingsLoaded?(headings)
-        }
+        onHeadingsLoaded?(headings)
     }
 
     // MARK: - Private
@@ -175,7 +184,7 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
         case let .openExternal(url):
             NSWorkspace.shared.open(url)
         case let .openMarkdownFile(url):
-            Task { @MainActor in self.onOpenRelativeFile?(url) }
+            onOpenRelativeFile?(url)
         case .ignored:
             break
         }
@@ -230,12 +239,24 @@ struct MarkdownWebView: NSViewRepresentable {
     let markdown: String
 
     func makeNSView(context _: Context) -> WKWebView {
-        proxy.render(markdown: markdown)
-        return proxy.webView
+        proxy.webView
     }
 
     func updateNSView(_: WKWebView, context _: Context) {
         proxy.render(markdown: markdown)
+    }
+}
+
+/// Breaks the retain cycle: WKUserContentController → WeakScriptMessageHandler -(weak)→ WebViewProxy.
+private class WeakScriptMessageHandler: NSObject, WKScriptMessageHandler {
+    private weak var delegate: WKScriptMessageHandler?
+
+    init(_ delegate: WKScriptMessageHandler) {
+        self.delegate = delegate
+    }
+
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+        delegate?.userContentController(controller, didReceive: message)
     }
 }
 

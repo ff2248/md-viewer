@@ -21,6 +21,7 @@ enum MarkdownRenderer {
         var html = MarkdownParser.toHTML(markdown, options: options)
         html = HighlightRenderer.highlight(in: html, bundle: bundle)
         html = KaTeXRenderer.renderMath(in: html, bundle: bundle)
+        html = stripEventHandlers(in: html)
         return html
     }
 
@@ -96,8 +97,10 @@ enum MarkdownRenderer {
             if src.hasPrefix("http://") || src.hasPrefix("https://") || src.hasPrefix("data:") {
                 return String(match.output.0)
             }
-            let fileURL = dir.appendingPathComponent(src)
-            guard let data = try? Data(contentsOf: fileURL) else { return String(match.output.0) }
+            let fileURL = dir.appendingPathComponent(src).standardizedFileURL
+            // Prevent path traversal outside the document's directory
+            guard fileURL.path.hasPrefix(dir.standardizedFileURL.path + "/"),
+                  let data = try? Data(contentsOf: fileURL) else { return String(match.output.0) }
             let mime = switch fileURL.pathExtension.lowercased() {
             case "png": "image/png"
             case "jpg", "jpeg": "image/jpeg"
@@ -111,6 +114,15 @@ enum MarkdownRenderer {
         }
     }
 
+    /// Strip all on* event handler attributes to prevent XSS via raw HTML in Markdown.
+    /// GFM tagfilter only blocks specific tags (script, style, etc.) but not event handlers
+    /// on allowed tags like <img onerror="...">.
+    static func stripEventHandlers(in html: String) -> String {
+        html.replacing(eventHandlerRegex, with: "")
+    }
+
+    private nonisolated(unsafe) static let eventHandlerRegex = /\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/
+        .ignoresCase()
     private nonisolated(unsafe) static let imgSrcRegex = /src="([^"]+)"/
 
     private static let cssFiles = ["github-markdown", "github.min", "github-dark.min", "katex.min", "custom"]

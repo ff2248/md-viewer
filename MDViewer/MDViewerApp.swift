@@ -8,11 +8,13 @@ extension UTType {
 @main
 struct MDViewerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    @State private var appState = AppState()
     @FocusedValue(\.webViewProxy) private var webProxy
+    @FocusedValue(\.documentURL) private var documentURL
+    @FocusedValue(\.documentText) private var documentText
+    @State private var globalSettings = GlobalSettings()
 
     private var canExport: Bool {
-        webProxy != nil && !appState.markdown.isEmpty
+        webProxy != nil && documentText?.isEmpty == false
     }
 
     /// Default window size: ~70% of screen, clamped to reasonable bounds.
@@ -24,14 +26,13 @@ struct MDViewerApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
-            ContentView(appState: appState)
+        DocumentGroup(viewing: MarkdownDocument.self) { file in
+            ContentView(document: file.$document, globalSettings: globalSettings)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .navigationTitle(appState.windowTitle)
                 .toolbar {
                     ToolbarItem(placement: .primaryAction) {
                         Button {
-                            appState.showSettings.toggle()
+                            globalSettings.showSettings.toggle()
                         } label: {
                             Image(systemName: "gearshape")
                         }
@@ -39,56 +40,49 @@ struct MDViewerApp: App {
                     }
                     ToolbarItem(placement: .primaryAction) {
                         Button {
-                            appState.openInExternalEditor()
+                            if let url = documentURL {
+                                GlobalSettings.openInExternalEditor(url: url)
+                            }
                         } label: {
                             Image(systemName: "pencil.and.outline")
                         }
                         .help("Open in External Editor")
-                        .disabled(appState.fileURL == nil)
+                        .disabled(documentURL == nil)
                     }
-                }
-                .onOpenURL { url in
-                    appState.openFile(url)
-                }
-                .onDrop(of: [.fileURL], isTargeted: nil) { providers in
-                    guard let provider = providers.first else { return false }
-                    _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                        guard let url else { return }
-                        Task { @MainActor in appState.openFile(url) }
-                    }
-                    return true
                 }
         }
         .defaultSize(width: Self.defaultWindowSize.width, height: Self.defaultWindowSize.height)
         .commands {
             CommandGroup(replacing: .appSettings) {
                 Button("Settings...") {
-                    appState.showSettings.toggle()
+                    globalSettings.showSettings.toggle()
                 }
                 .keyboardShortcut(",")
             }
             CommandGroup(replacing: .newItem) {
-                Button("Open...") { appState.showOpenPanel() }
-                    .keyboardShortcut("o")
-
-                Divider()
-
+                // DocumentGroup provides Open... automatically
+            }
+            CommandGroup(after: .importExport) {
                 Button("Open in External Editor") {
-                    appState.openInExternalEditor()
+                    if let url = documentURL {
+                        GlobalSettings.openInExternalEditor(url: url)
+                    }
                 }
                 .keyboardShortcut("e", modifiers: [.command, .shift])
-                .disabled(appState.fileURL == nil)
+                .disabled(documentURL == nil)
 
                 Divider()
 
                 Button("Export as PDF...") {
-                    webProxy?.exportPDF(title: appState.windowTitle)
+                    webProxy?.exportPDF(title: documentURL?.lastPathComponent ?? "document")
                 }
                 .keyboardShortcut("e")
                 .disabled(!canExport)
 
                 Button("Export as HTML...") {
-                    webProxy?.exportHTML(markdown: appState.markdown, title: appState.windowTitle)
+                    if let text = documentText {
+                        webProxy?.exportHTML(markdown: text, title: documentURL?.lastPathComponent ?? "document")
+                    }
                 }
                 .disabled(!canExport)
 
@@ -99,28 +93,40 @@ struct MDViewerApp: App {
                 .disabled(!canExport)
             }
             CommandGroup(after: .sidebar) {
-                Button("Toggle Sidebar") {
-                    withAnimation {
-                        switch appState.columnVisibility {
-                        case .detailOnly: appState.columnVisibility = .doubleColumn
-                        default: appState.columnVisibility = .detailOnly
-                        }
-                    }
-                }
-                .keyboardShortcut("s", modifiers: [.command, .shift])
-
                 Divider()
 
-                Button("Zoom In") { appState.zoomIn() }
+                Button("Zoom In") { globalSettings.zoomIn() }
                     .keyboardShortcut("+", modifiers: .command)
 
-                Button("Zoom Out") { appState.zoomOut() }
+                Button("Zoom Out") { globalSettings.zoomOut() }
                     .keyboardShortcut("-", modifiers: .command)
 
-                Button("Actual Size") { appState.resetZoom() }
+                Button("Actual Size") { globalSettings.resetZoom() }
                     .keyboardShortcut("0", modifiers: .command)
             }
         }
+    }
+}
+
+// MARK: - Focused Values
+
+struct DocumentURLKey: FocusedValueKey {
+    typealias Value = URL
+}
+
+struct DocumentTextKey: FocusedValueKey {
+    typealias Value = String
+}
+
+extension FocusedValues {
+    var documentURL: URL? {
+        get { self[DocumentURLKey.self] }
+        set { self[DocumentURLKey.self] = newValue }
+    }
+
+    var documentText: String? {
+        get { self[DocumentTextKey.self] }
+        set { self[DocumentTextKey.self] = newValue }
     }
 }
 
@@ -173,7 +179,7 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .onChange(of: appearance) { _, newValue in
-            AppState.applyAppearance(newValue)
+            GlobalSettings.applyAppearance(newValue)
         }
     }
 
@@ -197,25 +203,52 @@ struct SettingsView: View {
 
 // MARK: - App Delegate
 
+@MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
-    func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool {
-        true
-    }
+    private static let tabbingID = NSWindow.TabbingIdentifier("com.local.MDViewer.document")
+    private var windowObserver: Any?
+    private var keyMonitor: Any?
 
     func applicationDidFinishLaunching(_: Notification) {
-        AppState.applyAppearance(UserDefaults.standard.string(forKey: SettingsKey.appearance) ?? "auto")
+        GlobalSettings.applyAppearance(UserDefaults.standard.string(forKey: SettingsKey.appearance) ?? "auto")
+        NSWindow.allowsAutomaticWindowTabbing = true
+
+        windowObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didBecomeKeyNotification, object: nil, queue: .main
+        ) { _ in MainActor.assumeIsolated { Self.tagDocumentWindows() } }
+
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+                  let chars = event.charactersIgnoringModifiers,
+                  let digit = chars.first?.wholeNumberValue,
+                  digit >= 1, digit <= 9,
+                  let tabs = NSApp.keyWindow?.tabbedWindows,
+                  tabs.count > 1 else { return event }
+            let index = digit == 9 ? tabs.count - 1 : digit - 1
+            guard index < tabs.count else { return event }
+            tabs[index].makeKeyAndOrderFront(nil)
+            return nil
+        }
+    }
+
+    /// Ensure all document windows share a tabbingIdentifier so macOS
+    /// automatically merges new windows into the existing tab group.
+    /// Idempotent — safe to call on every focus change.
+    private static func tagDocumentWindows() {
+        for window in NSApp.windows {
+            guard window.isVisible, window.styleMask.contains(.titled),
+                  !(window is NSPanel) else { continue }
+            window.tabbingMode = .preferred
+            window.tabbingIdentifier = tabbingID
+        }
     }
 }
 
-// MARK: - App State
+// MARK: - Global Settings (shared across all windows)
 
 @MainActor
 @Observable
-class AppState {
-    var markdown = ""
-    var fileURL: URL?
-    var windowTitle = "MDViewer"
-    var columnVisibility: NavigationSplitViewVisibility = .doubleColumn
+class GlobalSettings {
     var showSettings = false
     var hardBreaks: Bool = RenderOptions.defaults.hardBreaks
     var showFrontMatter: Bool = RenderOptions.defaults.showFrontMatter
@@ -228,19 +261,12 @@ class AppState {
     }
 
     private var defaultsObserver: Any?
-    private var fileWatcher: DispatchSourceFileSystemObject?
 
     init() {
         syncFromDefaults()
-        Self.applyAppearance(UserDefaults.standard.string(forKey: SettingsKey.appearance) ?? "auto")
-
         defaultsObserver = NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification, object: nil, queue: .main
-        ) { [weak self] _ in self?.syncFromDefaults() }
-
-        if let path = ProcessInfo.processInfo.arguments.dropFirst().first {
-            openFile(URL(fileURLWithPath: path))
-        }
+        ) { [weak self] _ in MainActor.assumeIsolated { self?.syncFromDefaults() } }
     }
 
     private func syncFromDefaults() {
@@ -277,64 +303,11 @@ class AppState {
         UserDefaults.standard.set(bodyFontSize, forKey: SettingsKey.bodyFontSize)
     }
 
-    // MARK: - File Operations
+    // MARK: - External Editor
 
-    func openFile(_ url: URL) {
-        switch MarkdownRenderer.readMarkdownFile(at: url) {
-        case let .success(text):
-            markdown = text
-            fileURL = url
-            windowTitle = url.lastPathComponent
-            watchFile(url)
-        case .failure:
-            markdown = ""
-            fileURL = nil
-            windowTitle = "MDViewer"
-            fileWatcher?.cancel()
-            fileWatcher = nil
-        }
-    }
-
-    func openInExternalEditor() {
-        guard let url = fileURL else { return }
+    static func openInExternalEditor(url: URL) {
         let editorPath = UserDefaults.standard.string(forKey: SettingsKey.externalEditor) ?? RenderOptions.defaultExternalEditor
         let editorURL = URL(filePath: editorPath)
         NSWorkspace.shared.open([url], withApplicationAt: editorURL, configuration: NSWorkspace.OpenConfiguration())
-    }
-
-    func showOpenPanel() {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.markdown, .plainText]
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
-        if panel.runModal() == .OK, let url = panel.url {
-            openFile(url)
-        }
-    }
-
-    // MARK: - File Watcher
-
-    private func watchFile(_ url: URL) {
-        fileWatcher?.cancel()
-        fileWatcher = nil
-
-        let fd = open(url.path, O_EVTONLY)
-        guard fd >= 0 else { return }
-
-        let source = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: fd, eventMask: [.write, .rename, .delete], queue: .main
-        )
-        source.setEventHandler { [weak self] in
-            guard let self else { return }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                if case let .success(text) = MarkdownRenderer.readMarkdownFile(at: url) {
-                    self.markdown = text
-                }
-                self.watchFile(url)
-            }
-        }
-        source.setCancelHandler { close(fd) }
-        source.resume()
-        fileWatcher = source
     }
 }

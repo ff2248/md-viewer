@@ -50,11 +50,11 @@ struct LinkRouterSuite {
         #expect(action == .openMarkdownFile(target))
     }
 
-    @Test func nonexistentMarkdownLinkFallsBack() throws {
+    @Test func nonexistentMarkdownLinkIgnored() {
         let source = URL(fileURLWithPath: "/tmp/test.md")
         let action = LinkRouter.classify("nonexistent.md", relativeTo: source)
-        // Falls back to openExternal since file doesn't exist
-        #expect(try action == .openExternal(#require(URL(string: "nonexistent.md"))))
+        // File doesn't exist + no safe scheme → ignored
+        #expect(action == .ignored)
     }
 
     @Test func markdownExtensionsRecognized() throws {
@@ -74,18 +74,19 @@ struct LinkRouterSuite {
 
     // MARK: - Non-markdown relative links
 
-    @Test func nonMarkdownRelativeLinkOpensExternal() throws {
+    @Test func nonMarkdownRelativeLinkIgnored() {
         let source = URL(fileURLWithPath: "/tmp/test.md")
         let action = LinkRouter.classify("style.css", relativeTo: source)
-        #expect(try action == .openExternal(#require(URL(string: "style.css"))))
+        // Relative path without safe scheme → ignored
+        #expect(action == .ignored)
     }
 
     // MARK: - No file context
 
-    @Test func relativeMarkdownLinkWithoutFileURL() throws {
+    @Test func relativeMarkdownLinkWithoutFileURL() {
         let action = LinkRouter.classify("README.md", relativeTo: nil)
-        // No fileURL → can't resolve, falls back to openExternal
-        #expect(try action == .openExternal(#require(URL(string: "README.md"))))
+        // No fileURL → can't resolve, no safe scheme → ignored
+        #expect(action == .ignored)
     }
 
     // MARK: - Edge cases
@@ -95,9 +96,24 @@ struct LinkRouterSuite {
         #expect(action == .ignored)
     }
 
-    @Test func spacesInHrefStillParsesAsURL() {
-        // URL(string:) percent-encodes, so most strings produce a valid URL
+    @Test func spacesInHrefIgnored() {
+        // No safe scheme → ignored regardless of URL validity
         let action = LinkRouter.classify("some file.md", relativeTo: nil)
-        #expect(action != .ignored)
+        #expect(action == .ignored)
+    }
+
+    @Test func mailtoLinkAllowed() throws {
+        let action = LinkRouter.classify("mailto:user@example.com", relativeTo: nil)
+        #expect(try action == .openExternal(#require(URL(string: "mailto:user@example.com"))))
+    }
+
+    @Test func javascriptSchemeBlocked() {
+        let action = LinkRouter.classify("javascript:alert(1)", relativeTo: nil)
+        #expect(action == .ignored)
+    }
+
+    @Test func fileSchemeBlocked() {
+        let action = LinkRouter.classify("file:///etc/passwd", relativeTo: nil)
+        #expect(action == .ignored)
     }
 }

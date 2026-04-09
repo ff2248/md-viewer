@@ -11,10 +11,9 @@ enum KaTeXRenderer {
         guard html.contains("$") || html.contains("language-math") else { return html }
         guard let ctx = cache.context(bundle: bundle) else { return html }
 
-        var result = html
-        result = replaceMathCodeBlocks(in: result, context: ctx)
-        result = replaceDisplay(in: result, context: ctx)
-        result = replaceInline(in: result, context: ctx)
+        var result = replaceMathCodeBlocks(in: html, context: ctx)
+        result = replaceDisplay(in: result, codeRanges: buildCodeBlockRanges(in: result), context: ctx)
+        result = replaceInline(in: result, codeRanges: buildCodeBlockRanges(in: result), context: ctx)
         return result
     }
 
@@ -37,13 +36,20 @@ enum KaTeXRenderer {
 
     private static func replaceMathCodeBlocks(in html: String, context: JSContext) -> String {
         let matches = Array(html.matches(of: mathCodeBlockRegex))
-        var result = html
-        for match in matches.reversed() {
+        guard !matches.isEmpty else { return html }
+        var result = ""
+        var lastEnd = html.startIndex
+        for match in matches {
+            result += html[lastEnd ..< match.range.lowerBound]
             let expr = String(match.output.1).htmlUnescaped.trimmingCharacters(in: .whitespacesAndNewlines)
             if let rendered = renderKaTeX(expr, displayMode: true, context: context) {
-                result.replaceSubrange(match.range, with: rendered)
+                result += rendered
+            } else {
+                result += html[match.range]
             }
+            lastEnd = match.range.upperBound
         }
+        result += html[lastEnd...]
         return result
     }
 
@@ -56,48 +62,61 @@ enum KaTeXRenderer {
     private nonisolated(unsafe) static let inlineMathRegex = /\$(.+?)\$/
         .dotMatchesNewlines()
 
-    private static func replaceDisplay(in html: String, context: JSContext) -> String {
+    private static func replaceDisplay(in html: String, codeRanges: [Range<String.Index>], context: JSContext) -> String {
         let matches = Array(html.matches(of: displayMathRegex))
-        var result = html
-        for match in matches.reversed() {
-            let before = String(result[result.startIndex ..< match.range.lowerBound])
-            if isInsideCodeBlock(before) { continue }
-
-            let expr = String(match.output.1)
-            if let rendered = renderKaTeX(expr, displayMode: true, context: context) {
-                result.replaceSubrange(match.range, with: rendered)
+        guard !matches.isEmpty else { return html }
+        var result = ""
+        var lastEnd = html.startIndex
+        for match in matches {
+            result += html[lastEnd ..< match.range.lowerBound]
+            if !isInsideCodeBlock(match.range.lowerBound, codeRanges: codeRanges),
+               let rendered = renderKaTeX(String(match.output.1), displayMode: true, context: context)
+            {
+                result += rendered
+            } else {
+                result += html[match.range]
             }
+            lastEnd = match.range.upperBound
         }
+        result += html[lastEnd...]
         return result
     }
 
-    private static func replaceInline(in html: String, context: JSContext) -> String {
+    private static func replaceInline(in html: String, codeRanges: [Range<String.Index>], context: JSContext) -> String {
         let matches = Array(html.matches(of: inlineMathRegex))
-        var result = html
-        for match in matches.reversed() {
-            // Skip if this is part of a $$ delimiter
+        guard !matches.isEmpty else { return html }
+        var result = ""
+        var lastEnd = html.startIndex
+        for match in matches {
             let start = match.range.lowerBound
             let end = match.range.upperBound
-            if start > result.startIndex, result[result.index(before: start)] == "$" { continue }
-            if end < result.endIndex, result[end] == "$" { continue }
+            result += html[lastEnd ..< match.range.lowerBound]
 
-            let before = String(result[result.startIndex ..< start])
-            if isInsideCodeBlock(before) { continue }
+            // Skip $$ delimiters and code blocks
+            let isDoubleDollar = (start > html.startIndex && html[html.index(before: start)] == "$")
+                || (end < html.endIndex && html[end] == "$")
 
-            let expr = String(match.output.1)
-            if let rendered = renderKaTeX(expr, displayMode: false, context: context) {
-                result.replaceSubrange(match.range, with: rendered)
+            if isDoubleDollar || isInsideCodeBlock(start, codeRanges: codeRanges) {
+                result += html[match.range]
+            } else if let rendered = renderKaTeX(String(match.output.1), displayMode: false, context: context) {
+                result += rendered
+            } else {
+                result += html[match.range]
             }
+            lastEnd = match.range.upperBound
         }
+        result += html[lastEnd...]
         return result
     }
 
-    private static func isInsideCodeBlock(_ textBefore: String) -> Bool {
-        let codeOpens = textBefore.components(separatedBy: "<code").count - 1
-        let codeCloses = textBefore.components(separatedBy: "</code>").count - 1
-        if codeOpens > codeCloses { return true }
-        let preOpens = textBefore.components(separatedBy: "<pre").count - 1
-        let preCloses = textBefore.components(separatedBy: "</pre>").count - 1
-        return preOpens > preCloses
+    private static func buildCodeBlockRanges(in html: String) -> [Range<String.Index>] {
+        html.matches(of: codeBlockRangeRegex).map(\.range)
+    }
+
+    private nonisolated(unsafe) static let codeBlockRangeRegex =
+        /<(?:code|pre)[^>]*>[\s\S]*?<\/(?:code|pre)>/
+
+    private static func isInsideCodeBlock(_ position: String.Index, codeRanges: [Range<String.Index>]) -> Bool {
+        codeRanges.contains { $0.contains(position) }
     }
 }

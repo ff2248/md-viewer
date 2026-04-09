@@ -209,6 +209,8 @@ struct StringExtensionsSuite {
         ("a\rb", "a\\rb"),
         ("line1\nit's a\\path", "line1\\nit\\'s a\\\\path"),
         ("", ""),
+        ("a\u{2028}b", "a\\u2028b"),
+        ("a\u{2029}b", "a\\u2029b"),
     ])
     func jsEscaped(input: String, expected: String) {
         #expect(input.jsEscaped == expected)
@@ -287,5 +289,158 @@ struct InlineLocalImagesSuite {
         let result = MarkdownRenderer.inlineLocalImages(in: "<img src=\"nonexistent.png\">", relativeTo: Self.baseURL)
         #expect(result.contains("nonexistent.png"))
         #expect(!result.contains("base64"))
+    }
+
+    @Test func inlinesLocalPNG() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("imgtest-\(UUID())")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        // 1x1 red PNG
+        let pngData = try #require(Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="))
+        let imgPath = dir.appendingPathComponent("red.png")
+        try pngData.write(to: imgPath)
+
+        let source = dir.appendingPathComponent("test.md")
+        let result = MarkdownRenderer.inlineLocalImages(in: "<img src=\"red.png\">", relativeTo: source)
+        #expect(result.contains("data:image/png;base64,"))
+        #expect(!result.contains("red.png"))
+    }
+
+    @Test func blocksPathTraversal() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("imgtest-\(UUID())")
+        let subdir = dir.appendingPathComponent("docs")
+        try FileManager.default.createDirectory(at: subdir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        // Create file outside docs/
+        let secret = dir.appendingPathComponent("secret.txt")
+        try "secret".write(to: secret, atomically: true, encoding: .utf8)
+
+        let source = subdir.appendingPathComponent("test.md")
+        let result = MarkdownRenderer.inlineLocalImages(in: "<img src=\"../secret.txt\">", relativeTo: source)
+        #expect(!result.contains("base64"))
+        #expect(result.contains("../secret.txt"))
+    }
+
+    @Test func blocksSiblingDirectoryPrefix() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("imgtest-\(UUID())")
+        let docsDir = dir.appendingPathComponent("docs")
+        let evilDir = dir.appendingPathComponent("docs-evil")
+        try FileManager.default.createDirectory(at: docsDir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: evilDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let payload = evilDir.appendingPathComponent("payload.png")
+        try "fake".write(to: payload, atomically: true, encoding: .utf8)
+
+        let source = docsDir.appendingPathComponent("test.md")
+        let result = MarkdownRenderer.inlineLocalImages(in: "<img src=\"../docs-evil/payload.png\">", relativeTo: source)
+        #expect(!result.contains("base64"))
+    }
+}
+
+// MARK: - HighlightRenderer
+
+struct HighlightRendererSuite {
+    @Test func highlightsCodeBlock() {
+        let html = "<pre><code class=\"language-js\">var x = 1;</code></pre>"
+        let result = HighlightRenderer.highlight(in: html, bundle: testBundle)
+        #expect(result.contains("hljs"))
+    }
+
+    @Test func skipsLanguageMath() {
+        let html = "<pre><code class=\"language-math\">E = mc^2</code></pre>"
+        let result = HighlightRenderer.highlight(in: html, bundle: testBundle)
+        #expect(result.contains("language-math"))
+        #expect(!result.contains("hljs"))
+    }
+
+    @Test func skipsLanguageMermaid() {
+        let html = "<pre><code class=\"language-mermaid\">graph TD</code></pre>"
+        let result = HighlightRenderer.highlight(in: html, bundle: testBundle)
+        #expect(result.contains("language-mermaid"))
+        #expect(!result.contains("hljs"))
+    }
+
+    @Test func noCodeBlocksUnchanged() {
+        let html = "<p>No code here</p>"
+        #expect(HighlightRenderer.highlight(in: html, bundle: testBundle) == html)
+    }
+
+    @Test func multipleCodeBlocks() {
+        let html = """
+        <pre><code class="language-js">var a = 1;</code></pre>
+        <pre><code class="language-swift">let b = 2</code></pre>
+        """
+        let result = HighlightRenderer.highlight(in: html, bundle: testBundle)
+        #expect(result.components(separatedBy: "hljs").count >= 3) // "hljs" appears at least twice
+    }
+}
+
+// MARK: - KaTeXRenderer
+
+struct KaTeXRendererSuite {
+    @Test func noDollarSignsUnchanged() {
+        let html = "<p>No math here</p>"
+        #expect(KaTeXRenderer.renderMath(in: html, bundle: testBundle) == html)
+    }
+
+    @Test func rendersMathCodeBlock() {
+        let html = "<pre><code class=\"language-math\">E = mc^2</code></pre>"
+        let result = KaTeXRenderer.renderMath(in: html, bundle: testBundle)
+        #expect(!result.contains("language-math"))
+        #expect(result.contains("katex"))
+    }
+
+    @Test func rendersDisplayMath() {
+        let html = "<p>$$E = mc^2$$</p>"
+        let result = KaTeXRenderer.renderMath(in: html, bundle: testBundle)
+        #expect(result.contains("katex"))
+        #expect(!result.contains("$$"))
+    }
+
+    @Test func rendersInlineMath() {
+        let html = "<p>$x^2$</p>"
+        let result = KaTeXRenderer.renderMath(in: html, bundle: testBundle)
+        #expect(result.contains("katex"))
+    }
+
+    @Test func doesNotRenderMathInsideCode() {
+        let html = "<code>$x$</code>"
+        let result = KaTeXRenderer.renderMath(in: html, bundle: testBundle)
+        #expect(!result.contains("katex"))
+        #expect(result.contains("$x$"))
+    }
+}
+
+// MARK: - XSS Prevention
+
+struct XSSPreventionSuite {
+    @Test func stripsImgOnerror() {
+        let html = MarkdownRenderer.stripEventHandlers(in: "<img src=x onerror=\"alert(1)\">")
+        #expect(!html.contains("onerror"))
+        #expect(html.contains("<img src=x"))
+    }
+
+    @Test func stripsSvgOnload() {
+        let html = MarkdownRenderer.stripEventHandlers(in: "<svg onload=\"alert(1)\">")
+        #expect(!html.contains("onload"))
+    }
+
+    @Test func stripsUnquotedEventHandler() {
+        let html = MarkdownRenderer.stripEventHandlers(in: "<img src=x onerror=alert(1)>")
+        #expect(!html.contains("onerror"))
+    }
+
+    @Test func stripsCaseVariantEventHandler() {
+        let html = MarkdownRenderer.stripEventHandlers(in: "<img ONERROR=\"alert(1)\">")
+        #expect(!html.contains("ONERROR"))
+    }
+
+    @Test func preservesNormalAttributes() {
+        let html = MarkdownRenderer.stripEventHandlers(in: "<img src=\"photo.jpg\" alt=\"nice\">")
+        #expect(html.contains("src=\"photo.jpg\""))
+        #expect(html.contains("alt=\"nice\""))
     }
 }

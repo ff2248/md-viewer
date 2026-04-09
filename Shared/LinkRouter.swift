@@ -8,6 +8,8 @@ enum LinkRouter {
         case ignored
     }
 
+    private static let safeSchemes: Set<String> = ["http", "https", "mailto"]
+
     /// Classify a link href relative to the current file's location.
     static func classify(_ href: String, relativeTo fileURL: URL?) -> Action {
         // External URLs
@@ -27,8 +29,11 @@ enum LinkRouter {
             }
         }
 
-        // Fallback — try as URL
-        if let url = URL(string: href) {
+        // Fallback — only allow safe schemes
+        if let url = URL(string: href),
+           let scheme = url.scheme?.lowercased(),
+           Self.safeSchemes.contains(scheme)
+        {
             return .openExternal(url)
         }
 

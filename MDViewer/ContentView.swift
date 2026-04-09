@@ -1,56 +1,84 @@
 import SwiftUI
 
 struct ContentView: View {
-    @Bindable var appState: AppState
+    @Binding var document: MarkdownDocument
+    @Bindable var globalSettings: GlobalSettings
     @State private var headings: [Heading] = []
     @State private var selectedHeadingID: String?
     @State private var collapsedIDs: Set<String> = []
+    @State private var columnVisibility: NavigationSplitViewVisibility = .doubleColumn
+    @State private var fileURL: URL?
     @StateObject private var webProxy = WebViewProxy()
 
     var body: some View {
-        NavigationSplitView(columnVisibility: $appState.columnVisibility) {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
             Group {
-                if appState.markdown.isEmpty {
-                    ContentUnavailableView("No Document", systemImage: "doc.text", description: Text("Open a .md file or drag one here"))
+                if document.text.isEmpty {
+                    ContentUnavailableView("No Document", systemImage: "doc.text", description: Text("Open a .md file"))
                 } else {
                     tocList
                 }
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 260, max: 400)
         } detail: {
-            if appState.markdown.isEmpty {
+            if document.text.isEmpty {
                 emptyState
             } else {
-                MarkdownWebView(proxy: webProxy, markdown: appState.markdown)
+                MarkdownWebView(proxy: webProxy, markdown: document.text)
             }
+        }
+        .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+            guard let provider = providers.first else { return false }
+            _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                guard let url else { return }
+                Task { @MainActor in
+                    // Use NSWorkspace to go through Apple Event path — same as `open -a`,
+                    // which macOS automatically handles as tabs when allowsAutomaticWindowTabbing is true.
+                    NSWorkspace.shared.open([url], withApplicationAt: Bundle.main.bundleURL,
+                                            configuration: NSWorkspace.OpenConfiguration())
+                }
+            }
+            return true
         }
         .onAppear {
             webProxy.onHeadingsLoaded = { headings = $0 }
-            webProxy.onOpenRelativeFile = { appState.openFile($0) }
-            webProxy.fileURL = appState.fileURL
-            webProxy.options = appState.renderOptions
+            webProxy.onOpenRelativeFile = { url in
+                // For relative links, open in a new window via NSWorkspace
+                NSWorkspace.shared.open(url)
+            }
+            webProxy.options = globalSettings.renderOptions
+            resolveFileURL()
         }
-        .onChange(of: appState.fileURL) {
-            webProxy.fileURL = appState.fileURL
-        }
-        .onChange(of: appState.renderOptions) { old, new in
+        .onChange(of: globalSettings.renderOptions) { old, new in
             webProxy.options = new
             if old.bodyFontSize != new.bodyFontSize || old.codeFontSize != new.codeFontSize {
                 webProxy.applyFontSizes()
             }
             if old.hardBreaks != new.hardBreaks || old.showFrontMatter != new.showFrontMatter {
-                webProxy.forceRerender(markdown: appState.markdown)
+                webProxy.forceRerender(markdown: document.text)
             }
         }
-        .onChange(of: appState.markdown) {
+        .onChange(of: document.text) {
             headings = []
             selectedHeadingID = nil
             collapsedIDs = []
         }
         .focusedSceneValue(\.webViewProxy, webProxy)
-        .inspector(isPresented: $appState.showSettings) {
+        .focusedSceneValue(\.documentURL, fileURL)
+        .focusedSceneValue(\.documentText, document.text)
+        .inspector(isPresented: $globalSettings.showSettings) {
             SettingsView()
                 .inspectorColumnWidth(min: 280, ideal: 320, max: 400)
+        }
+    }
+
+    // MARK: - File URL Resolution
+
+    private func resolveFileURL() {
+        // DocumentGroup provides the file URL via NSDocumentController
+        if let doc = NSDocumentController.shared.currentDocument {
+            fileURL = doc.fileURL
+            webProxy.fileURL = doc.fileURL
         }
     }
 
@@ -103,7 +131,6 @@ struct ContentView: View {
 
     // MARK: - Collapse Logic
 
-    /// Headings filtered by collapse state.
     private var visibleHeadings: [Heading] {
         var result: [Heading] = []
         var skipBelow: Int?
@@ -136,24 +163,20 @@ struct ContentView: View {
         }
     }
 
-    /// Handle ← (collapse) and → (expand) on selected heading.
     private func handleArrowKey(collapse: Bool) -> KeyPress.Result {
         guard let id = selectedHeadingID,
               let heading = headings.first(where: { $0.id == id }) else { return .ignored }
 
         if collapse {
-            // ← : collapse if expanded with children, otherwise select parent
             if hasChildren(heading), !collapsedIDs.contains(heading.id) {
                 toggleCollapse(heading)
                 return .handled
             }
-            // Select parent heading (nearest heading with lower level)
             if let parentID = findParent(of: heading) {
                 selectedHeadingID = parentID
                 return .handled
             }
         } else {
-            // → : expand if collapsed with children
             if hasChildren(heading), collapsedIDs.contains(heading.id) {
                 toggleCollapse(heading)
                 return .handled
@@ -162,7 +185,6 @@ struct ContentView: View {
         return .ignored
     }
 
-    /// Find the nearest ancestor heading (lower level) above this heading.
     private func findParent(of heading: Heading) -> String? {
         guard let idx = headings.firstIndex(where: { $0.id == heading.id }) else { return nil }
         for i in stride(from: idx - 1, through: 0, by: -1) {

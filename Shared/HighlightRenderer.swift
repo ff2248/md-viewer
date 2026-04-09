@@ -11,31 +11,40 @@ enum HighlightRenderer {
         guard html.contains("<code") else { return html }
         guard let ctx = cache.context(bundle: bundle) else { return html }
 
-        var result = html
-        // Replace in reverse order to preserve indices
-        let matches = Array(result.matches(of: codeBlockRegex))
-        for match in matches.reversed() {
+        let matches = Array(html.matches(of: codeBlockRegex))
+        guard !matches.isEmpty else { return html }
+
+        var result = ""
+        var lastEnd = html.startIndex
+        for match in matches {
+            result += html[lastEnd ..< match.range.lowerBound]
+
             let lang = String(match.output.1)
-            if lang == "math" || lang == "mermaid" { continue }
-            let code = String(match.output.2).htmlUnescaped
-
-            let js = """
-            (function(){
-                try {
-                    if (hljs.getLanguage('\(lang)')) {
-                        return hljs.highlight('\(code.jsEscaped)', {language: '\(lang)'}).value;
-                    } else {
-                        return hljs.highlightAuto('\(code.jsEscaped)').value;
-                    }
-                } catch(e) { return ''; }
-            })()
-            """
-
-            if let highlighted = ctx.evaluateScript(js)?.toString(), !highlighted.isEmpty {
-                let replacement = "<pre><code class=\"hljs language-\(lang)\">\(highlighted)</code></pre>"
-                result.replaceSubrange(match.range, with: replacement)
+            if lang == "math" || lang == "mermaid" {
+                result += html[match.range]
+            } else {
+                let escaped = String(match.output.2).htmlUnescaped.jsEscaped
+                let langSafe = lang.jsEscaped
+                let js = """
+                (function(){
+                    try {
+                        if (hljs.getLanguage('\(langSafe)')) {
+                            return hljs.highlight('\(escaped)', {language: '\(langSafe)'}).value;
+                        } else {
+                            return hljs.highlightAuto('\(escaped)').value;
+                        }
+                    } catch(e) { return ''; }
+                })()
+                """
+                if let highlighted = ctx.evaluateScript(js)?.toString(), !highlighted.isEmpty {
+                    result += "<pre><code class=\"hljs language-\(lang.htmlEscaped)\">\(highlighted)</code></pre>"
+                } else {
+                    result += html[match.range]
+                }
             }
+            lastEnd = match.range.upperBound
         }
+        result += html[lastEnd...]
 
         return result
     }
