@@ -14,7 +14,6 @@ struct ContentView: View {
                     ContentUnavailableView("No Document", systemImage: "doc.text", description: Text("Open a .md file or drag one here"))
                 } else {
                     tocList
-                        .safeAreaInset(edge: .bottom, spacing: 0) { tocFooter }
                 }
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 260, max: 400)
@@ -93,6 +92,8 @@ struct ContentView: View {
             .padding(.leading, CGFloat((heading.level - 1) * 12))
             .tag(heading.id)
         }
+        .onKeyPress(.leftArrow) { handleArrowKey(collapse: true) }
+        .onKeyPress(.rightArrow) { handleArrowKey(collapse: false) }
         .onChange(of: selectedHeadingID) { _, newValue in
             if let id = newValue {
                 webProxy.scrollToHeading(id)
@@ -100,20 +101,7 @@ struct ContentView: View {
         }
     }
 
-    private var tocFooter: some View {
-        VStack(spacing: 0) {
-            Divider()
-            HStack(spacing: 8) {
-                footerButton("list.bullet.indent", help: "Expand All", disabled: collapsedIDs.isEmpty) { expandAll() }
-                footerButton("list.bullet", help: "Collapse All") { collapseAll() }
-
-                Spacer()
-            }
-            .padding(.horizontal)
-            .padding(.vertical, 4)
-        }
-        .background(.bar)
-    }
+    // MARK: - Collapse Logic
 
     /// Headings filtered by collapse state.
     private var visibleHeadings: [Heading] {
@@ -132,41 +120,57 @@ struct ContentView: View {
         return result
     }
 
-    /// Whether a heading has any children (next heading is deeper level).
     private func hasChildren(_ heading: Heading) -> Bool {
         guard let idx = headings.firstIndex(where: { $0.id == heading.id }),
               idx + 1 < headings.count else { return false }
         return headings[idx + 1].level > heading.level
     }
 
-    private static let collapseAnimationDuration: Double = 0.15
-
-    private func footerButton(_ icon: String, help: String, disabled: Bool = false, action: @escaping () -> Void) -> some View {
-        Button { withAnimation(.easeInOut(duration: Self.collapseAnimationDuration)) { action() } } label: {
-            Image(systemName: icon)
-                .frame(width: 16)
-        }
-        .buttonStyle(.plain)
-        .disabled(disabled)
-        .help(help)
-    }
-
-    private func expandAll() {
-        collapsedIDs.removeAll()
-    }
-
-    private func collapseAll() {
-        collapsedIDs = Set(headings.filter { hasChildren($0) }.map(\.id))
-    }
-
     private func toggleCollapse(_ heading: Heading) {
-        withAnimation(.easeInOut(duration: Self.collapseAnimationDuration)) {
+        withAnimation(.easeInOut(duration: 0.15)) {
             if collapsedIDs.contains(heading.id) {
                 collapsedIDs.remove(heading.id)
             } else {
                 collapsedIDs.insert(heading.id)
             }
         }
+    }
+
+    /// Handle ← (collapse) and → (expand) on selected heading.
+    private func handleArrowKey(collapse: Bool) -> KeyPress.Result {
+        guard let id = selectedHeadingID,
+              let heading = headings.first(where: { $0.id == id }) else { return .ignored }
+
+        if collapse {
+            // ← : collapse if expanded with children, otherwise select parent
+            if hasChildren(heading), !collapsedIDs.contains(heading.id) {
+                toggleCollapse(heading)
+                return .handled
+            }
+            // Select parent heading (nearest heading with lower level)
+            if let parentID = findParent(of: heading) {
+                selectedHeadingID = parentID
+                return .handled
+            }
+        } else {
+            // → : expand if collapsed with children
+            if hasChildren(heading), collapsedIDs.contains(heading.id) {
+                toggleCollapse(heading)
+                return .handled
+            }
+        }
+        return .ignored
+    }
+
+    /// Find the nearest ancestor heading (lower level) above this heading.
+    private func findParent(of heading: Heading) -> String? {
+        guard let idx = headings.firstIndex(where: { $0.id == heading.id }) else { return nil }
+        for i in stride(from: idx - 1, through: 0, by: -1) {
+            if headings[i].level < heading.level {
+                return headings[i].id
+            }
+        }
+        return nil
     }
 
     private func fontForLevel(_ level: Int) -> Font {
