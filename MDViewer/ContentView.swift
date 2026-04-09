@@ -175,8 +175,7 @@ struct ContentView: View {
 
     private func fontForLevel(_ level: Int) -> Font {
         switch level {
-        case 1: .headline
-        case 2: .subheadline
+        case 1: .body.bold()
         default: .body
         }
     }

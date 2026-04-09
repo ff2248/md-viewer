@@ -232,8 +232,8 @@ struct RenderOptionsSuite {
         let d = RenderOptions.defaults
         #expect(d.hardBreaks)
         #expect(d.showFrontMatter)
-        #expect(d.bodyFontSize == 16)
-        #expect(d.codeFontSize == 13)
+        #expect(d.bodyFontSize == 15)
+        #expect(d.codeFontSize == 12)
     }
 
     @Test func equatable() {

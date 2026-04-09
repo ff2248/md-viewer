@@ -20,8 +20,8 @@ struct RenderOptions: Equatable {
     static let defaults = RenderOptions(
         hardBreaks: true,
         showFrontMatter: true,
-        bodyFontSize: 16,
-        codeFontSize: 13
+        bodyFontSize: 15,
+        codeFontSize: 12
     )
 
     static let bodyFontSizeRange: ClosedRange<Double> = 12 ... 24
