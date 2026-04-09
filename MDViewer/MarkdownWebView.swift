@@ -30,12 +30,11 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
         self.bundle = bundle
 
         let config = WKWebViewConfiguration()
-        config.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
         let uc = WKUserContentController()
         config.userContentController = uc
 
         webView = NonClickThroughWebView(frame: .zero, configuration: config)
-        webView.setValue(false, forKey: "drawsBackground")
+        webView.underPageBackgroundColor = .clear
 
         super.init()
 
