@@ -16,6 +16,7 @@ struct Heading: Identifiable, Equatable {
 class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMessageHandler {
     let webView: WKWebView
     var onHeadingsLoaded: (([Heading]) -> Void)?
+    var onOpenRelativeFile: ((URL) -> Void)?
 
     private var isReady = false
     private var pendingMarkdown: String?
@@ -39,6 +40,7 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
         super.init()
 
         uc.add(self, name: "headings")
+        uc.add(self, name: "linkClicked")
         webView.navigationDelegate = self
 
         // 1. Start loading template + CSS immediately
@@ -116,17 +118,15 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
     // MARK: - WKNavigationDelegate
 
     func webView(_: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
-        guard navigationAction.navigationType == .linkActivated,
-              let url = navigationAction.request.url else { return .allow }
-
-        // In-page anchor links (e.g. footnotes) — handle within the WebView
-        if url.fragment != nil, url.scheme == "file" {
+        // Links are handled by JS click handler → linkClicked message handler.
+        // This delegate only handles initial page load and footnote anchor navigation.
+        if navigationAction.navigationType == .linkActivated,
+           let url = navigationAction.request.url,
+           url.fragment != nil, url.scheme == "file"
+        {
             return .allow
         }
-
-        // External links — open in default browser
-        NSWorkspace.shared.open(url)
-        return .cancel
+        return navigationAction.navigationType == .other ? .allow : .cancel
     }
 
     func webView(_: WKWebView, didFinish _: WKNavigation!) {
@@ -142,6 +142,11 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
     func userContentController(_: WKUserContentController,
                                didReceive message: WKScriptMessage)
     {
+        if message.name == "linkClicked", let href = message.body as? String {
+            handleLinkClick(href)
+            return
+        }
+
         guard message.name == "headings",
               let list = message.body as? [[String: Any]] else { return }
 
@@ -164,6 +169,31 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
               let content = try? String(contentsOf: url, encoding: .utf8) else { return nil }
         Self.cachedMermaidJS = content
         return content
+    }
+
+    private func handleLinkClick(_ href: String) {
+        // External URLs — open in browser
+        if href.hasPrefix("http://") || href.hasPrefix("https://") {
+            if let url = URL(string: href) {
+                NSWorkspace.shared.open(url)
+            }
+            return
+        }
+
+        // Relative .md links — open in MDViewer
+        let ext = (href as NSString).pathExtension.lowercased()
+        if let fileURL, ["md", "markdown", "mdown", "mkd"].contains(ext) {
+            let resolved = fileURL.deletingLastPathComponent().appendingPathComponent(href)
+            if FileManager.default.fileExists(atPath: resolved.path) {
+                Task { @MainActor in self.onOpenRelativeFile?(resolved) }
+                return
+            }
+        }
+
+        // Fallback — try opening as URL
+        if let url = URL(string: href) {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     var fileURL: URL?

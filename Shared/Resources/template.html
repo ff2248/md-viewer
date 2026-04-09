@@ -71,6 +71,27 @@
             var el = document.getElementById(id);
             if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
+
+        // Intercept link clicks and route through Swift
+        document.addEventListener('click', function(e) {
+            var link = e.target.closest('a');
+            if (!link) return;
+            var href = link.getAttribute('href');
+            if (!href) return;
+
+            // Anchor links — handle in-page
+            if (href.startsWith('#')) {
+                var target = document.getElementById(href.substring(1));
+                if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth' }); }
+                return;
+            }
+
+            // Send all other links to Swift for routing
+            e.preventDefault();
+            if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.linkClicked) {
+                window.webkit.messageHandlers.linkClicked.postMessage(href);
+            }
+        });
     </script>
 </body>
 </html>

@@ -27,6 +27,7 @@ struct ContentView: View {
         }
         .onAppear {
             webProxy.onHeadingsLoaded = { headings = $0 }
+            webProxy.onOpenRelativeFile = { appState.openFile($0) }
             webProxy.fileURL = appState.fileURL
             webProxy.options = appState.renderOptions
         }
