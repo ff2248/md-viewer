@@ -9,6 +9,7 @@ struct ContentView: View {
     @State private var columnVisibility: NavigationSplitViewVisibility = .doubleColumn
     @State private var fileURL: URL?
     @StateObject private var webProxy = WebViewProxy()
+    @StateObject private var fileWatcher = FileWatcher()
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -76,9 +77,19 @@ struct ContentView: View {
 
     private func resolveFileURL() {
         // DocumentGroup provides the file URL via NSDocumentController
-        if let doc = NSDocumentController.shared.currentDocument {
-            fileURL = doc.fileURL
-            webProxy.fileURL = doc.fileURL
+        guard let doc = NSDocumentController.shared.currentDocument,
+              let url = doc.fileURL else { return }
+        fileURL = url
+        webProxy.fileURL = url
+        // Watch for external edits and auto-reload.
+        // DocumentGroup(viewing:) does not auto-revert on file changes, so we
+        // re-implement the DispatchSource watcher from the pre-DocumentGroup era.
+        fileWatcher.watch(url) { newText in
+            document.text = newText
+            // Tell NSDocument the change is intentional (not a dirty user edit),
+            // otherwise it will try to autosave and show "could not be autosaved"
+            // when it detects the underlying file has changed.
+            NSDocumentController.shared.currentDocument?.updateChangeCount(.changeCleared)
         }
     }
 
