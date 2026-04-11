@@ -69,6 +69,28 @@ struct MarkdownRendererSuite {
         let html = MarkdownRenderer.buildSelfContainedHTML(markdown: "# No mermaid", bundle: testBundle)
         #expect(!html.contains("mermaid.initialize"))
     }
+
+    @Test func selfContainedHTMLInlinesLocalImagesWhenBaseURLProvided() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("exptest-\(UUID())")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        // 1x1 red PNG
+        let pngData = try #require(Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="))
+        try pngData.write(to: dir.appendingPathComponent("pic.png"))
+
+        let md = "![](pic.png)"
+        let source = dir.appendingPathComponent("doc.md")
+        let html = MarkdownRenderer.buildSelfContainedHTML(markdown: md, bundle: testBundle, baseURL: source)
+        #expect(html.contains("data:image/png;base64,"))
+        #expect(!html.contains("src=\"pic.png\""))
+    }
+
+    @Test func selfContainedHTMLKeepsRelativeImagesWithoutBaseURL() {
+        let html = MarkdownRenderer.buildSelfContainedHTML(markdown: "![](pic.png)", bundle: testBundle)
+        // No baseURL → images stay as relative references (will fail when HTML is moved)
+        #expect(!html.contains("data:image/png;base64"))
+    }
 }
 
 // MARK: - MarkdownParser

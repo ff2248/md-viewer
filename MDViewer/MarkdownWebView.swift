@@ -77,7 +77,7 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
         panel.nameFieldStringValue = title.replacingOccurrences(of: ".md", with: ".html")
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
-        let html = MarkdownRenderer.buildSelfContainedHTML(markdown: markdown, bundle: bundle, options: options)
+        let html = MarkdownRenderer.buildSelfContainedHTML(markdown: markdown, bundle: bundle, baseURL: fileURL, options: options)
         do {
             try html.write(to: url, atomically: true, encoding: .utf8)
         } catch {
