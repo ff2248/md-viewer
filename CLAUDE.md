@@ -65,6 +65,8 @@ Rendering pipeline: `MarkdownParser` (cmark-gfm) → `HighlightRenderer` (JSCont
 - Put `@AppStorage` key strings inline — use `SettingsKey` constants
 - Try to intercept drag & drop on WKWebView content area — internal private subviews consume drag events, `unregisterDraggedTypes()` and `registerForDraggedTypes` override do not work, glass pane overlay with `hitTest` nil also fails
 - Use `NSDocumentController.shared.openDocument(display:)` to open files from within the app — bypasses macOS automatic tab merging; use `NSWorkspace.shared.open` (Apple Event path) instead
+- Use empty `CommandGroup(replacing: .newItem/.saveItem) { }` — causes ghost "NSMenuItem" text in menu (SwiftUI bug FB16145855)
+- Rely on `applicationWillUpdate` or `didBecomeActive` to modify File menu items — SwiftUI's `AppKitMainMenuItem` repeatedly resets the delegate. Must swizzle `NSMenu.setDelegate:` to prevent SwiftUI from clobbering a custom `FileMenuPruner` delegate, then install via `applicationWillFinishLaunching` (see `MDViewerApp.swift`)
 - Add features beyond what's asked (YAGNI)
 
 ## Known Issues / TODO

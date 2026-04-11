@@ -444,3 +444,160 @@ struct XSSPreventionSuite {
         #expect(html.contains("alt=\"nice\""))
     }
 }
+
+// MARK: - FileMenuPruner
+
+import AppKit
+
+@MainActor
+struct FileMenuPrunerSuite {
+    /// Build an NSMenu matching what macOS gives us for a DocumentGroup(viewing:) File menu.
+    private func makeFileMenu() -> NSMenu {
+        let menu = NSMenu(title: "File")
+        let titles = [
+            "New", "Open…", "Open Recent",
+            "", // separator
+            "Close", "Close All",
+            "Save", "Save As…", "Duplicate", "Rename…", "Move To…", "Revert To Saved", "Revert To",
+            "", // separator
+            "Share",
+            "", // separator
+            "Print…",
+        ]
+        for title in titles {
+            if title.isEmpty {
+                menu.addItem(.separator())
+            } else {
+                let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+                menu.addItem(item)
+            }
+        }
+        return menu
+    }
+
+    @Test func prunesUnwantedItems() {
+        let menu = makeFileMenu()
+        FileMenuPruner.prune(menu)
+
+        let visibleTitles = menu.items.filter { !$0.isHidden && !$0.isSeparatorItem }.map(\.title)
+        #expect(visibleTitles == ["Open…", "Open Recent", "Close", "Close All", "Print…"])
+    }
+
+    @Test func hidesNewSaveDuplicateRenameMoveRevertShare() {
+        let menu = makeFileMenu()
+        FileMenuPruner.prune(menu)
+
+        for prefix in FileMenuPruner.unwantedTitlePrefixes {
+            let matched = menu.items.filter { $0.title.hasPrefix(prefix) }
+            #expect(!matched.isEmpty, "No items matched prefix '\(prefix)' — test data is stale")
+            for item in matched {
+                #expect(item.isHidden, "Item '\(item.title)' should be hidden")
+                #expect(!item.isEnabled, "Item '\(item.title)' should be disabled")
+                #expect(item.keyEquivalent.isEmpty, "Item '\(item.title)' should have no key equivalent")
+            }
+        }
+    }
+
+    @Test func preservesWantedItems() {
+        let menu = makeFileMenu()
+        FileMenuPruner.prune(menu)
+
+        let wantedTitles = ["Open…", "Open Recent", "Close", "Close All", "Print…"]
+        for title in wantedTitles {
+            let item = menu.items.first { $0.title == title }
+            #expect(item != nil, "Expected '\(title)' to exist")
+            #expect(item?.isHidden == false, "'\(title)' should be visible")
+        }
+    }
+
+    @Test func collapsesAdjacentSeparators() {
+        let menu = makeFileMenu()
+        FileMenuPruner.prune(menu)
+
+        // After hiding New, Save..Revert, Share, leading and trailing sections should not
+        // have visible runs of separators.
+        let visible = menu.items.filter { !$0.isHidden }
+        // No two consecutive visible separators
+        for i in 0 ..< visible.count - 1 {
+            #expect(!(visible[i].isSeparatorItem && visible[i + 1].isSeparatorItem),
+                    "Found adjacent visible separators at index \(i)")
+        }
+        // No leading separator
+        #expect(visible.first?.isSeparatorItem == false, "Should not lead with a separator")
+        // No trailing separator
+        #expect(visible.last?.isSeparatorItem == false, "Should not trail with a separator")
+    }
+
+    @Test func idempotent() {
+        let menu = makeFileMenu()
+        FileMenuPruner.prune(menu)
+        let afterFirst = menu.items.map { "\($0.title):\($0.isHidden)" }
+        FileMenuPruner.prune(menu)
+        let afterSecond = menu.items.map { "\($0.title):\($0.isHidden)" }
+        #expect(afterFirst == afterSecond, "Pruning should be idempotent")
+    }
+
+    @Test func delegateForwardsToSwiftUIDelegate() {
+        // Verify NSObject.forwardingTarget works: unknown selectors are forwarded.
+        class StubDelegate: NSObject, NSMenuDelegate {
+            var closedCount = 0
+            func menuDidClose(_: NSMenu) {
+                closedCount += 1
+            }
+        }
+        let stub = StubDelegate()
+        let pruner = FileMenuPruner()
+        pruner.previousDelegate = stub
+
+        // menuDidClose is not implemented on FileMenuPruner — should forward to stub
+        // via forwardingTarget(for:).
+        let menu = NSMenu(title: "Test")
+        (pruner as NSMenuDelegate).menuDidClose?(menu)
+        #expect(stub.closedCount == 1, "Unknown selector should forward to previousDelegate")
+    }
+
+    /// Runs AppDelegate's launch hook so tests don't pollute global state via
+    /// direct `NSMenu.installFileMenuDelegateProtection()` calls. The swizzle is
+    /// process-global once installed, so all swizzle tests must route through
+    /// AppDelegate to faithfully verify that AppDelegate wires it up correctly.
+    private func runAppDelegateLaunch() {
+        let appDelegate = AppDelegate()
+        appDelegate.applicationWillFinishLaunching(Notification(name: NSApplication.willFinishLaunchingNotification))
+    }
+
+    /// End-to-end test: AppDelegate installs the swizzle, then SwiftUI's clobber
+    /// attempt should be intercepted. This catches the regression where
+    /// `applicationWillFinishLaunching` doesn't call `installFileMenuDelegateProtection`.
+    @Test func appDelegateInstallsSwizzle() {
+        runAppDelegateLaunch()
+
+        let fileMenu = NSMenu(title: "File")
+        let pruner = FileMenuPruner()
+        fileMenu.delegate = pruner
+
+        class FakeSwiftUIDelegate: NSObject, NSMenuDelegate {}
+        let swiftUIImposter = FakeSwiftUIDelegate()
+        fileMenu.delegate = swiftUIImposter
+
+        #expect(fileMenu.delegate === pruner,
+                "AppDelegate.applicationWillFinishLaunching must install swizzle to protect File menu delegate")
+        #expect(pruner.previousDelegate === swiftUIImposter,
+                "Incoming delegate should be stored for forwarding")
+    }
+
+    /// Non-File menus should NOT be protected — only the File menu.
+    @Test func swizzleOnlyProtectsFileMenu() {
+        runAppDelegateLaunch()
+
+        let editMenu = NSMenu(title: "Edit")
+        let pruner = FileMenuPruner()
+        editMenu.delegate = pruner
+
+        class OtherDelegate: NSObject, NSMenuDelegate {}
+        let other = OtherDelegate()
+        editMenu.delegate = other
+
+        // For non-File menus, delegate should be replaceable normally
+        #expect(editMenu.delegate === other, "Non-File menus should not be protected by the swizzle")
+    }
+}
