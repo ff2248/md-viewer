@@ -93,6 +93,11 @@ struct MDViewerApp: App {
                 .disabled(!canExport)
             }
             CommandGroup(after: .sidebar) {
+                Button("Toggle Sidebar") {
+                    NSApp.sendAction(#selector(NSSplitViewController.toggleSidebar(_:)), to: nil, from: nil)
+                }
+                .keyboardShortcut("s", modifiers: [.command, .shift])
+
                 Divider()
 
                 Button("Zoom In") { globalSettings.zoomIn() }
@@ -217,6 +222,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSMenu.installFileMenuDelegateProtection()
     }
 
+    /// Quit the app when the last window is closed. Standard macOS document-based
+    /// apps stay open in the Dock, but for a simple viewer this is confusing.
+    func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool {
+        true
+    }
+
     func applicationDidFinishLaunching(_: Notification) {
         GlobalSettings.applyAppearance(UserDefaults.standard.string(forKey: SettingsKey.appearance) ?? "auto")
         NSWindow.allowsAutomaticWindowTabbing = true
@@ -231,7 +242,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            guard event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+            // Swallow auto-repeat for shortcuts with ⌘/⌥/⌃ to prevent rapid
+            // toggling when a user holds the key. Shift+letter typing is unaffected
+            // because .shift alone is excluded from the shortcut modifier set.
+            //
+            // Whitelist: zoom shortcuts (⌘+/-/=) where repeat is useful.
+            // "+" and "=" both appear because macOS reports the physical key differently
+            // depending on keyboard layout and shift state.
+            if event.isARepeat {
+                let shortcutMods: NSEvent.ModifierFlags = [.command, .option, .control]
+                let hasShortcutMod = !event.modifierFlags.intersection(shortcutMods).isEmpty
+                let chars = event.charactersIgnoringModifiers ?? ""
+                let zoomChars: Set = ["+", "-", "="]
+                if hasShortcutMod, !zoomChars.contains(chars) {
+                    return nil
+                }
+            }
+
+            // ⌘1–⌘9 tab switching
+            let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            guard mods == .command,
                   let chars = event.charactersIgnoringModifiers,
                   let digit = chars.first?.wholeNumberValue,
                   digit >= 1, digit <= 9,
