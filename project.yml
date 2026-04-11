@@ -26,6 +26,8 @@ targets:
           - "Resources/**"
       - path: Shared/Resources
         buildPhase: resources
+      - path: ThirdPartyNotices.txt
+        buildPhase: resources
     settings:
       base:
         CODE_SIGN_ENTITLEMENTS: MDViewer/MDViewer.entitlements
