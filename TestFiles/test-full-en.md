@@ -15,15 +15,20 @@ This document tests all MDViewer rendering features.
 - [Mermaid Diagrams](#mermaid-diagrams)
 - [Rich Text](#rich-text)
 
-## Quick Comparison
+## Rendering Feature Matrix
 
-| Feature | MDViewer | VS Code | QLMarkdown |
-|---------|:-------:|:-------:|:----------:|
-| Quick Look | Yes | No | Yes |
-| Standalone viewer | Yes | Editor-based | Settings only |
-| Math (offline) | KaTeX | Extension | MathJax (CDN) |
-| Mermaid diagrams | Yes | Extension | Yes |
-| License | MIT | Proprietary | GPLv3 |
+| Feature            | Status  | Notes                          |
+|--------------------|:-------:|:-------------------------------|
+| Headings           |   Yes   | H1–H6 with slug IDs            |
+| Tables             |   Yes   | With column alignment          |
+| Task lists         |   Yes   | `[ ]` and `[x]`                |
+| Code fences        |   Yes   | Syntax highlighting            |
+| Math (inline)      |   Yes   | `$...$`                        |
+| Math (display)     |   Yes   | `$$...$$` or ```` ```math ```` |
+| Mermaid            |   Yes   | Lazy-loaded                    |
+| Footnotes          |   Yes   | Clickable back-references      |
+| Emoji shortcodes   |   Yes   | `:rocket:` → 🚀                |
+| Front matter       |   Yes   | Rendered as table              |
 
 ## Code Highlighting
 
