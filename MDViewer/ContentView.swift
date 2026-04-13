@@ -81,14 +81,10 @@ struct ContentView: View {
         .onChange(of: document.text) {
             // NSDocument silently reverted — fall back to the new document text.
             liveText = nil
-            headings = []
-            selectedHeadingID = nil
-            collapsedIDs = []
+            resetTableOfContents()
         }
         .onChange(of: liveText) {
-            headings = []
-            selectedHeadingID = nil
-            collapsedIDs = []
+            resetTableOfContents()
         }
         .focusedSceneValue(\.webViewProxy, webProxy)
         .focusedSceneValue(\.documentURL, fileURL)
@@ -101,11 +97,14 @@ struct ContentView: View {
 
     // MARK: - File URL Resolution
 
+    private func resetTableOfContents() {
+        headings = []
+        selectedHeadingID = nil
+        collapsedIDs = []
+    }
+
     private func resolveFileURL() {
         guard fileURL == nil else { return }
-        // DocumentGroup provides the file URL via NSDocumentController.
-        // Also try the main window's representedURL as a fallback —
-        // NSDocument sets it and it may be available before currentDocument.
         guard let doc = NSDocumentController.shared.currentDocument,
               let url = doc.fileURL else { return }
         fileURL = url

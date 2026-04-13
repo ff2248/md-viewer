@@ -210,7 +210,7 @@ struct SettingsView: View {
 
 @MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
-    private static let tabbingID = NSWindow.TabbingIdentifier("com.local.MDViewer.document")
+    private static let tabbingID = NSWindow.TabbingIdentifier("io.github.ff2248.MDViewer.document")
     private let fileMenuPruner = FileMenuPruner()
     private var windowObserver: Any?
     private var keyMonitor: Any?
@@ -458,8 +458,8 @@ class GlobalSettings {
                       bodyFontSize: bodyFontSize, codeFontSize: codeFontSize)
     }
 
-    let defaults: UserDefaults
-    private var defaultsObserver: Any?
+    private let defaults: UserDefaults
+    private nonisolated(unsafe) var defaultsObserver: Any?
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -467,6 +467,12 @@ class GlobalSettings {
         defaultsObserver = NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification, object: nil, queue: .main
         ) { [weak self] _ in MainActor.assumeIsolated { self?.syncFromDefaults() } }
+    }
+
+    deinit {
+        if let observer = defaultsObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
     }
 
     private func syncFromDefaults() {

@@ -12,7 +12,7 @@ private func options(hardBreaks: Bool = RenderOptions.defaults.hardBreaks,
 }
 
 /// Bundle for tests that need bundled resources.
-private let testBundle = Bundle(identifier: "com.local.MDViewer") ?? .main
+private let testBundle = Bundle(identifier: "io.github.ff2248.MDViewer") ?? .main
 
 // MARK: - MarkdownRenderer
 
