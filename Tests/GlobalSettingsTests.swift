@@ -3,38 +3,43 @@ import AppKit
 import Testing
 
 struct GlobalSettingsSuite {
+    /// Isolated UserDefaults for each test — never touches the real app preferences.
+    @MainActor private static func makeSettings() -> GlobalSettings {
+        GlobalSettings(defaults: UserDefaults(suiteName: "test-\(UUID())")!)
+    }
+
     // MARK: - Zoom
 
     @Test @MainActor func zoomInIncreasesFontSize() {
-        let settings = GlobalSettings()
+        let settings = Self.makeSettings()
         settings.bodyFontSize = 18
         settings.zoomIn()
         #expect(settings.bodyFontSize == 19)
     }
 
     @Test @MainActor func zoomInClampsToMax() {
-        let settings = GlobalSettings()
+        let settings = Self.makeSettings()
         settings.bodyFontSize = RenderOptions.bodyFontSizeRange.upperBound
         settings.zoomIn()
         #expect(settings.bodyFontSize == RenderOptions.bodyFontSizeRange.upperBound)
     }
 
     @Test @MainActor func zoomOutDecreasesFontSize() {
-        let settings = GlobalSettings()
+        let settings = Self.makeSettings()
         settings.bodyFontSize = 18
         settings.zoomOut()
         #expect(settings.bodyFontSize == 17)
     }
 
     @Test @MainActor func zoomOutClampsToMin() {
-        let settings = GlobalSettings()
+        let settings = Self.makeSettings()
         settings.bodyFontSize = RenderOptions.bodyFontSizeRange.lowerBound
         settings.zoomOut()
         #expect(settings.bodyFontSize == RenderOptions.bodyFontSizeRange.lowerBound)
     }
 
     @Test @MainActor func resetZoomRestoresDefault() {
-        let settings = GlobalSettings()
+        let settings = Self.makeSettings()
         settings.bodyFontSize = 20
         settings.resetZoom()
         #expect(settings.bodyFontSize == RenderOptions.defaults.bodyFontSize)
@@ -43,7 +48,7 @@ struct GlobalSettingsSuite {
     // MARK: - renderOptions
 
     @Test @MainActor func renderOptionsReflectsState() {
-        let settings = GlobalSettings()
+        let settings = Self.makeSettings()
         settings.hardBreaks = false
         settings.showFrontMatter = false
         settings.bodyFontSize = 20

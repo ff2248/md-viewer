@@ -458,9 +458,11 @@ class GlobalSettings {
                       bodyFontSize: bodyFontSize, codeFontSize: codeFontSize)
     }
 
+    let defaults: UserDefaults
     private var defaultsObserver: Any?
 
-    init() {
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
         syncFromDefaults()
         defaultsObserver = NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification, object: nil, queue: .main
@@ -468,7 +470,7 @@ class GlobalSettings {
     }
 
     private func syncFromDefaults() {
-        let opts = RenderOptions.fromDefaults()
+        let opts = RenderOptions.fromDefaults(defaults)
         hardBreaks = opts.hardBreaks
         showFrontMatter = opts.showFrontMatter
         bodyFontSize = opts.bodyFontSize
@@ -488,17 +490,17 @@ class GlobalSettings {
 
     func zoomIn() {
         bodyFontSize = min(bodyFontSize + 1, RenderOptions.bodyFontSizeRange.upperBound)
-        UserDefaults.standard.set(bodyFontSize, forKey: SettingsKey.bodyFontSize)
+        defaults.set(bodyFontSize, forKey: SettingsKey.bodyFontSize)
     }
 
     func zoomOut() {
         bodyFontSize = max(bodyFontSize - 1, RenderOptions.bodyFontSizeRange.lowerBound)
-        UserDefaults.standard.set(bodyFontSize, forKey: SettingsKey.bodyFontSize)
+        defaults.set(bodyFontSize, forKey: SettingsKey.bodyFontSize)
     }
 
     func resetZoom() {
         bodyFontSize = RenderOptions.defaults.bodyFontSize
-        UserDefaults.standard.set(bodyFontSize, forKey: SettingsKey.bodyFontSize)
+        defaults.set(bodyFontSize, forKey: SettingsKey.bodyFontSize)
     }
 
     // MARK: - External Editor

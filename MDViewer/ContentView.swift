@@ -3,6 +3,10 @@ import SwiftUI
 struct ContentView: View {
     @Binding var document: MarkdownDocument
     @Bindable var globalSettings: GlobalSettings
+    /// Live text from FileWatcher. We never write back to `document.text` because
+    /// mutating the FileDocument binding marks NSDocument dirty, which triggers
+    /// "could not be autosaved" dialogs when the on-disk file has also changed.
+    @State private var liveText: String?
     @State private var headings: [Heading] = []
     @State private var selectedHeadingID: String?
     @State private var collapsedIDs: Set<String> = []
@@ -11,10 +15,15 @@ struct ContentView: View {
     @StateObject private var webProxy = WebViewProxy()
     @StateObject private var fileWatcher = FileWatcher()
 
+    /// Text to display — live content from FileWatcher, or the original from the document.
+    private var currentText: String {
+        liveText ?? document.text
+    }
+
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             Group {
-                if document.text.isEmpty {
+                if currentText.isEmpty {
                     ContentUnavailableView("No Document", systemImage: "doc.text", description: Text("Open a .md file"))
                 } else {
                     tocList
@@ -22,10 +31,10 @@ struct ContentView: View {
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 260, max: 400)
         } detail: {
-            if document.text.isEmpty {
+            if currentText.isEmpty {
                 emptyState
             } else {
-                MarkdownWebView(proxy: webProxy, markdown: document.text)
+                MarkdownWebView(proxy: webProxy, markdown: currentText)
             }
         }
         .onDrop(of: [.fileURL], isTargeted: nil) { providers in
@@ -50,23 +59,40 @@ struct ContentView: View {
             webProxy.options = globalSettings.renderOptions
             resolveFileURL()
         }
+        .task {
+            // On first launch, onAppear may fire before the window becomes main,
+            // so NSDocumentController.shared.currentDocument can be nil.
+            // Retry with short delays until the URL is resolved.
+            for _ in 0 ..< 20 {
+                if fileURL != nil { return }
+                try? await Task.sleep(for: .milliseconds(100))
+                resolveFileURL()
+            }
+        }
         .onChange(of: globalSettings.renderOptions) { old, new in
             webProxy.options = new
             if old.bodyFontSize != new.bodyFontSize || old.codeFontSize != new.codeFontSize {
                 webProxy.applyFontSizes()
             }
             if old.hardBreaks != new.hardBreaks || old.showFrontMatter != new.showFrontMatter {
-                webProxy.forceRerender(markdown: document.text)
+                webProxy.forceRerender(markdown: currentText)
             }
         }
         .onChange(of: document.text) {
+            // NSDocument silently reverted — fall back to the new document text.
+            liveText = nil
+            headings = []
+            selectedHeadingID = nil
+            collapsedIDs = []
+        }
+        .onChange(of: liveText) {
             headings = []
             selectedHeadingID = nil
             collapsedIDs = []
         }
         .focusedSceneValue(\.webViewProxy, webProxy)
         .focusedSceneValue(\.documentURL, fileURL)
-        .focusedSceneValue(\.documentText, document.text)
+        .focusedSceneValue(\.documentText, currentText)
         .inspector(isPresented: $globalSettings.showSettings) {
             SettingsView()
                 .inspectorColumnWidth(min: 280, ideal: 320, max: 400)
@@ -76,20 +102,21 @@ struct ContentView: View {
     // MARK: - File URL Resolution
 
     private func resolveFileURL() {
-        // DocumentGroup provides the file URL via NSDocumentController
+        guard fileURL == nil else { return }
+        // DocumentGroup provides the file URL via NSDocumentController.
+        // Also try the main window's representedURL as a fallback —
+        // NSDocument sets it and it may be available before currentDocument.
         guard let doc = NSDocumentController.shared.currentDocument,
               let url = doc.fileURL else { return }
         fileURL = url
         webProxy.fileURL = url
         // Watch for external edits and auto-reload.
-        // DocumentGroup(viewing:) does not auto-revert on file changes, so we
-        // re-implement the DispatchSource watcher from the pre-DocumentGroup era.
+        // Update liveText (a local @State) instead of document.text so we never
+        // dirty the FileDocument binding — prevents NSDocument autosave conflicts.
+        // Also call forceRerender directly to ensure the WebView updates immediately.
         fileWatcher.watch(url) { newText in
-            document.text = newText
-            // Tell NSDocument the change is intentional (not a dirty user edit),
-            // otherwise it will try to autosave and show "could not be autosaved"
-            // when it detects the underlying file has changed.
-            NSDocumentController.shared.currentDocument?.updateChangeCount(.changeCleared)
+            liveText = newText
+            webProxy.forceRerender(markdown: newText)
         }
     }
 
