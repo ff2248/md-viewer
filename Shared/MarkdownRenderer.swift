@@ -63,7 +63,11 @@ enum MarkdownRenderer {
         var html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
 
         for name in cssFiles {
-            html += "<style>" + readBundleResource(name, "css", bundle: bundle) + "</style>"
+            var css = readBundleResource(name, "css", bundle: bundle)
+            if name == "katex.min" {
+                css = inlineCSSFontURLs(in: css, bundle: bundle)
+            }
+            html += "<style>" + css + "</style>"
         }
         html += "</head><body>"
         html += "<article class='markdown-body'>"
@@ -121,6 +125,24 @@ enum MarkdownRenderer {
         html.replacing(eventHandlerRegex, with: "")
     }
 
+    /// Replace `url(katex-fonts/*.woff2)` in CSS with base64 data URIs.
+    /// Only woff2 is inlined — all modern browsers support it, and the browser
+    /// won't attempt woff/ttf fallbacks once woff2 loads successfully.
+    /// Font files are flattened into Resources/ by xcodegen, so we strip
+    /// the directory prefix and look up by filename only.
+    private static func inlineCSSFontURLs(in css: String, bundle: Bundle) -> String {
+        css.replacing(fontURLRegex) { match in
+            let relPath = String(match.output.1)
+            // Strip directory prefix: "katex-fonts/KaTeX_Math-Italic.woff2" → "KaTeX_Math-Italic"
+            let filename = (relPath as NSString).lastPathComponent
+            let name = (filename as NSString).deletingPathExtension
+            guard let url = bundle.url(forResource: name, withExtension: "woff2"),
+                  let data = try? Data(contentsOf: url) else { return String(match.output.0) }
+            return "url(data:font/woff2;base64,\(data.base64EncodedString()))"
+        }
+    }
+
+    private nonisolated(unsafe) static let fontURLRegex = /url\(([^)]+\.woff2)\)/
     private nonisolated(unsafe) static let eventHandlerRegex = /\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/
         .ignoresCase()
     private nonisolated(unsafe) static let imgSrcRegex = /src="([^"]+)"/

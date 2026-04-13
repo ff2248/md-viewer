@@ -7,6 +7,7 @@ CONFIG       := Release
 PROJECT      := MDViewer.xcodeproj
 APP_NAME     := MDViewer.app
 INSTALL_DIR  := /Applications
+BUNDLE_ID    := io.github.ff2248.MDViewer
 # Use an explicit derivedDataPath instead of parsing xcodebuild -showBuildSettings.
 # Robust against Apple changing output format, and avoids running xcodebuild during parse.
 DERIVED_DATA := build
@@ -42,7 +43,11 @@ install: build
 	@rm -rf "$(INSTALL_DIR)/$(APP_NAME)"
 	@cp -R "$(BUILD_DIR)/$(APP_NAME)" "$(INSTALL_DIR)/"
 	@qlmanage -r >/dev/null 2>&1
+	@# Unregister the build-dir copy so LaunchServices doesn't prefer it over /Applications
+	@/System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister -u "$(BUILD_DIR)/$(APP_NAME)" 2>/dev/null || true
 	@/System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister -f "$(INSTALL_DIR)/$(APP_NAME)"
+	@# Set MDViewer as the default handler for Markdown files
+	@/usr/bin/swift -e 'import CoreServices; import Foundation; LSSetDefaultRoleHandlerForContentType("net.daringfireball.markdown" as NSString, .all, "$(BUNDLE_ID)" as NSString)' 2>/dev/null || true
 	@echo ""
 	@echo "✅ MDViewer installed to $(INSTALL_DIR)/$(APP_NAME)"
 	@echo ""

@@ -44,6 +44,17 @@ struct MarkdownRendererSuite {
         #expect(MarkdownRenderer.hasMermaid("```mermaid\ngraph TD\n```"))
     }
 
+    @Test func selfContainedHTMLInlinesKaTeXFonts() {
+        let html = MarkdownRenderer.buildSelfContainedHTML(
+            markdown: "$x^2$", bundle: testBundle
+        )
+        // woff2 fonts should be inlined as data URIs
+        #expect(html.contains("data:font/woff2;base64,"))
+        // No woff2 references should remain as relative paths
+        // (woff/ttf fallbacks are OK — browsers won't try them once woff2 loads)
+        #expect(!html.contains(".woff2)"))
+    }
+
     @Test func hasMermaidReturnsFalseForNormal() {
         #expect(!MarkdownRenderer.hasMermaid("# Hello\nNo mermaid here"))
     }
