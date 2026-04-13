@@ -1,4 +1,4 @@
-.PHONY: help build install uninstall clean generate format test
+.PHONY: help build install uninstall clean generate format test dmg
 .DEFAULT_GOAL := help
 
 # ─── Configuration ────────────────────────────────────────────────
@@ -79,6 +79,14 @@ format:
 	@command -v swiftformat >/dev/null || { echo "Error: swiftformat not found. Install via: brew install swiftformat"; exit 1; }
 	@swiftformat MDViewer Shared MDViewerQuickLook Tests --swiftversion 6
 	@echo "Formatted."
+
+## dmg: Build a distributable DMG installer
+dmg: build
+	$(eval DMG_NAME := MDViewer-$(shell git describe --tags --always 2>/dev/null || echo dev).dmg)
+	@rm -f "$(DMG_NAME)"
+	@scripts/create_dmg.sh "$(BUILD_DIR)/$(APP_NAME)" "$(DMG_NAME)" \
+		&& echo "" && echo "✅ $(DMG_NAME) created" \
+		|| { echo "❌ DMG creation failed"; exit 1; }
 
 ## clean: Remove build artifacts
 clean:

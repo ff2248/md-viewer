@@ -36,6 +36,9 @@ docs/internal/
 .idea/
 .vscode/
 
+# Build artifacts
+*.dmg
+
 # Temporary files
 *.swp
 *~
