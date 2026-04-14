@@ -27,8 +27,8 @@ npm init -y --silent > /dev/null
 # ============================================================
 npm install --silent \
   highlight.js@11.11.1 \
-  katex@0.16.21 \
-  mermaid@11.6.0 \
+  temml@0.13.2 \
+  mermaid@11.14.0 \
   2>&1 | tail -1
 
 # ============================================================
@@ -51,21 +51,30 @@ echo "  highlight.js: $(du -h "$OUTPUT_DIR/highlight.min.js" | awk '{print $1}')
 "))"
 
 # ============================================================
-# 2. KaTeX + auto-render combined (→ window.katex + window.renderMathInElement)
+# 2. Temml (→ window.temml)
+#    Outputs MathML — macOS WebKit renders natively with STIX Two system fonts.
+#    No custom fonts needed (unlike KaTeX).
 # ============================================================
-cat > entry-katex.js << 'EOF'
-import katex from 'katex';
-import renderMathInElement from 'katex/contrib/auto-render';
-window.katex = katex;
-window.renderMathInElement = renderMathInElement;
+cat > entry-temml.js << 'EOF'
+import temml from 'temml';
+window.temml = temml;
 EOF
 
-npx esbuild entry-katex.js \
+npx esbuild entry-temml.js \
   --bundle --minify --format=iife \
-  --outfile="$OUTPUT_DIR/katex.min.js" \
+  --outfile="$OUTPUT_DIR/temml.min.js" \
   2>&1 | grep -v "^$"
 
-echo "  katex.js:      $(du -h "$OUTPUT_DIR/katex.min.js" | awk '{print $1}') (includes auto-render)"
+echo "  temml.js:      $(du -h "$OUTPUT_DIR/temml.min.js" | awk '{print $1}')"
+
+# ============================================================
+# 3. Temml CSS (Temml-Local uses system fonts — ideal for macOS)
+# ============================================================
+TEMML_CSS="node_modules/temml/dist/Temml-Local.css"
+cp "$TEMML_CSS" "$OUTPUT_DIR/temml.min.css"
+# Temml.woff2 provides \mathscr (script capitals) and prime symbols
+cp "node_modules/temml/dist/Temml.woff2" "$OUTPUT_DIR/Temml.woff2"
+echo "  temml.css:     $(du -h "$OUTPUT_DIR/temml.min.css" | awk '{print $1}') (system fonts + Temml.woff2 for \\mathscr)"
 
 # ============================================================
 # 4. Mermaid (→ window.mermaid)
@@ -83,33 +92,35 @@ npx esbuild entry-mermaid.js \
 echo "  mermaid.js:    $(du -h "$OUTPUT_DIR/mermaid.min.js" | awk '{print $1}')"
 
 # ============================================================
-# 5. KaTeX CSS (copy from npm)
-# ============================================================
-KATEX_CSS="node_modules/katex/dist/katex.min.css"
-cp "$KATEX_CSS" "$OUTPUT_DIR/katex.min.css"
-
-# Copy KaTeX fonts
-rm -rf "$OUTPUT_DIR/katex-fonts"
-mkdir -p "$OUTPUT_DIR/katex-fonts"
-cp node_modules/katex/dist/fonts/*.woff2 "$OUTPUT_DIR/katex-fonts/"
-
-# Patch CSS to reference local font path
-sed -i '' 's|fonts/|katex-fonts/|g' "$OUTPUT_DIR/katex.min.css"
-
-echo "  katex.css:     $(du -h "$OUTPUT_DIR/katex.min.css" | awk '{print $1}') + $(ls "$OUTPUT_DIR/katex-fonts/" | wc -l | tr -d ' ') font files"
-
-# ============================================================
-# 6. highlight.js GitHub theme CSS
+# 5. highlight.js GitHub theme CSS
 # ============================================================
 HLJS_CSS="node_modules/highlight.js/styles/github.min.css"
 if [ -f "$HLJS_CSS" ]; then
   cp "$HLJS_CSS" "$OUTPUT_DIR/github.min.css"
 else
-  # Fallback: download from CDN
   curl -sL "https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/styles/github.min.css" \
     -o "$OUTPUT_DIR/github.min.css"
 fi
 echo "  github.css:    $(du -h "$OUTPUT_DIR/github.min.css" | awk '{print $1}')"
+
+# ============================================================
+# 6. highlight.js GitHub Dark theme CSS (wrapped in dark mode media query)
+# ============================================================
+HLJS_DARK_CSS="node_modules/highlight.js/styles/github-dark.min.css"
+if [ -f "$HLJS_DARK_CSS" ]; then
+  # Wrap in prefers-color-scheme: dark media query so it only applies in dark mode
+  printf '@media (prefers-color-scheme:dark){' > "$OUTPUT_DIR/github-dark.min.css"
+  cat "$HLJS_DARK_CSS" >> "$OUTPUT_DIR/github-dark.min.css"
+  printf '}' >> "$OUTPUT_DIR/github-dark.min.css"
+else
+  curl -sL "https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/styles/github-dark.min.css" \
+    -o /tmp/github-dark-raw.css
+  printf '@media (prefers-color-scheme:dark){' > "$OUTPUT_DIR/github-dark.min.css"
+  cat /tmp/github-dark-raw.css >> "$OUTPUT_DIR/github-dark.min.css"
+  printf '}' >> "$OUTPUT_DIR/github-dark.min.css"
+  rm -f /tmp/github-dark-raw.css
+fi
+echo "  github-dark:   $(du -h "$OUTPUT_DIR/github-dark.min.css" | awk '{print $1}')"
 
 # ============================================================
 # Verify all outputs
@@ -117,7 +128,7 @@ echo "  github.css:    $(du -h "$OUTPUT_DIR/github.min.css" | awk '{print $1}')"
 echo ""
 echo "Verifying..."
 FAIL=0
-for f in highlight.min.js katex.min.js katex-auto-render.min.js mermaid.min.js katex.min.css github.min.css; do
+for f in highlight.min.js temml.min.js mermaid.min.js temml.min.css github.min.css github-dark.min.css; do
   if python3 -c "open('$OUTPUT_DIR/$f','rb').read().decode('utf-8')" 2>/dev/null; then
     echo "  ✓ $f (valid UTF-8)"
   else

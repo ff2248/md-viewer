@@ -1,12 +1,13 @@
 import Foundation
 @preconcurrency import JavaScriptCore
 
-/// Pre-renders LaTeX math expressions to HTML using KaTeX via JavaScriptCore.
+/// Pre-renders LaTeX math expressions to MathML using Temml via JavaScriptCore.
 ///
 /// Finds `$...$` (inline) and `$$...$$` (display) delimiters in HTML,
-/// calls `katex.renderToString()` for each, and replaces with rendered HTML.
-/// No browser-side JavaScript needed — the output is pure HTML + CSS.
-enum KaTeXRenderer {
+/// calls `temml.renderToString()` for each, and replaces with rendered MathML.
+/// No browser-side JavaScript needed — the output is MathML that
+/// macOS WebKit renders natively via STIX Two system fonts.
+enum MathRenderer {
     static func renderMath(in html: String, bundle: Bundle = .main) -> String {
         guard html.contains("$") || html.contains("language-math") else { return html }
         guard let ctx = cache.context(bundle: bundle) else { return html }
@@ -20,12 +21,12 @@ enum KaTeXRenderer {
     // MARK: - Private
 
     private static let cache = JSContextCache(
-        resource: "katex.min",
-        globalName: "katex"
+        resource: "temml.min",
+        globalName: "temml"
     )
 
-    private static func renderKaTeX(_ expr: String, displayMode: Bool, context: JSContext) -> String? {
-        let js = "try{katex.renderToString('\(expr.jsEscaped)',{displayMode:\(displayMode),throwOnError:false})}catch(e){''}"
+    private static func renderMath(_ expr: String, displayMode: Bool, context: JSContext) -> String? {
+        let js = "try{temml.renderToString('\(expr.jsEscaped)',{displayMode:\(displayMode),throwOnError:false})}catch(e){''}"
         guard let result = context.evaluateScript(js)?.toString(), !result.isEmpty else { return nil }
         return result
     }
@@ -42,7 +43,7 @@ enum KaTeXRenderer {
         for match in matches {
             result += html[lastEnd ..< match.range.lowerBound]
             let expr = String(match.output.1).htmlUnescaped.trimmingCharacters(in: .whitespacesAndNewlines)
-            if let rendered = renderKaTeX(expr, displayMode: true, context: context) {
+            if let rendered = renderMath(expr, displayMode: true, context: context) {
                 result += rendered
             } else {
                 result += html[match.range]
@@ -70,7 +71,7 @@ enum KaTeXRenderer {
         for match in matches {
             result += html[lastEnd ..< match.range.lowerBound]
             if !isInsideCodeBlock(match.range.lowerBound, codeRanges: codeRanges),
-               let rendered = renderKaTeX(String(match.output.1), displayMode: true, context: context)
+               let rendered = renderMath(String(match.output.1), displayMode: true, context: context)
             {
                 result += rendered
             } else {
@@ -98,7 +99,7 @@ enum KaTeXRenderer {
 
             if isDoubleDollar || isInsideCodeBlock(start, codeRanges: codeRanges) {
                 result += html[match.range]
-            } else if let rendered = renderKaTeX(String(match.output.1), displayMode: false, context: context) {
+            } else if let rendered = renderMath(String(match.output.1), displayMode: false, context: context) {
                 result += rendered
             } else {
                 result += html[match.range]

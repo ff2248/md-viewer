@@ -74,7 +74,7 @@ tags: [markdown, test, 繁體中文]
 |------|:------:|:----------:|------|
 | GFM 渲染 | ✅ | ✅ | cmark-gfm |
 | 語法高亮 | ✅ | ✅ | highlight.js 35 語言 |
-| 數學公式 | ✅ | ✅ | KaTeX |
+| 數學公式 | ✅ | ✅ | Temml |
 | Mermaid | ✅ | 條件載入 | 延遲載入 2.8 MB |
 | TOC 側邊欄 | ✅ | ❌ | 主 App 獨有 |
 
@@ -248,7 +248,7 @@ sequenceDiagram
 
 以下圖片使用相對路徑引用，Quick Look 預覽中應正常顯示（base64 內嵌）：
 
-![App Icon](../docs/icon.png)
+![App Icon](icon.png)
 
 ## 繁體中文測試
 

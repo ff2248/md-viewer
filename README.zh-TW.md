@@ -34,7 +34,7 @@
 
 - **GitHub 風格渲染** — 標題、表格、任務清單、刪除線、引用區塊
 - **語法高亮** — 透過 highlight.js 支援常見程式語言
-- **數學公式** — `$...$` 行內、`$$...$$` 區塊、` ```math ` 程式碼區塊（KaTeX）
+- **數學公式** — `$...$` 行內、`$$...$$` 區塊、` ```math ` 程式碼區塊（Temml / MathML）
 - **Mermaid 圖表** — 流程圖、序列圖等（延遲載入）
 - **腳註** — `[^1]` 語法，支援可點擊的回溯連結
 - **Emoji 短碼** — `:rocket:` → 🚀
@@ -112,7 +112,7 @@ Shared/                                # 主程式與擴充功能共用
 ├── MarkdownParser.swift               # cmark-gfm 解析器，啟用 GFM 擴充 + 腳註
 ├── MarkdownRenderer.swift              # 檔案 I/O、HTML 組裝、本地圖片內嵌
 ├── HighlightRenderer.swift            # 透過 JavaScriptCore 執行語法高亮
-├── KaTeXRenderer.swift                # 透過 JavaScriptCore 執行數學渲染
+├── MathRenderer.swift                 # 透過 JavaScriptCore 執行數學渲染（Temml）
 ├── RenderOptions.swift                # 共用設定常數與渲染選項
 ├── LinkRouter.swift                   # 連結點擊分類與路由
 ├── JSContextCache.swift               # 執行緒安全的延遲 JSContext 快取
@@ -121,12 +121,12 @@ Shared/                                # 主程式與擴充功能共用
     ├── template.html                  # HTML 範本與 JS bridge + heading slug
     ├── custom.css                     # 共用版面樣式（單一來源）
     ├── highlight.min.js               # 語法高亮引擎
-    ├── katex.min.js                   # 數學渲染引擎
+    ├── temml.min.js                   # 數學渲染引擎（MathML 輸出）
     ├── mermaid.min.js                 # 圖表渲染（延遲載入）
     ├── github-markdown.css            # GitHub 風格文件樣式（淺色 + 深色）
     ├── github.min.css                 # 語法主題（淺色）
     ├── github-dark.min.css            # 語法主題（深色）
-    └── katex.min.css                  # 數學樣式與字型
+    └── temml.min.css                  # 數學排版樣式（使用系統字型）
 ```
 
 ### 運作原理

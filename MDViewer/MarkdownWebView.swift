@@ -11,7 +11,7 @@ struct Heading: Identifiable, Equatable {
 /// Manages a pre-loaded WKWebView and pre-warmed JSContexts for instant rendering.
 ///
 /// At init: creates WKWebView + loads template (CSS only).
-/// Also pre-warms HighlightRenderer and KaTeXRenderer JSContexts in background.
+/// Also pre-warms HighlightRenderer and MathRenderer JSContexts in background.
 /// When user opens a file: Swift pre-renders everything → WKWebView just sets innerHTML.
 @MainActor
 class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMessageHandler {
@@ -63,7 +63,7 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
         // 2. Pre-warm JSContexts in background (so they're ready when user opens a file)
         Task.detached(priority: .userInitiated) {
             _ = HighlightRenderer.highlight(in: "<pre><code class=\"language-js\">x</code></pre>", bundle: bundle)
-            _ = KaTeXRenderer.renderMath(in: "<p>$x$</p>", bundle: bundle)
+            _ = MathRenderer.renderMath(in: "<p>$x$</p>", bundle: bundle)
         }
     }
 

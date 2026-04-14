@@ -31,7 +31,7 @@ Do NOT use raw `xcodebuild` commands — always use `make install` for building 
 - **MDViewerQuickLook/** — Quick Look extension (sandboxed, no ~/Library or external app access)
 - **Tests/** — Swift Testing (unit) + XCTest (performance)
 
-Rendering pipeline: `MarkdownParser` (cmark-gfm) → `HighlightRenderer` (JSContext) → `KaTeXRenderer` (JSContext) → WKWebView
+Rendering pipeline: `MarkdownParser` (cmark-gfm) → `HighlightRenderer` (JSContext) → `MathRenderer` (Temml, JSContext) → WKWebView
 
 ### Multi-Window / Tab Architecture
 

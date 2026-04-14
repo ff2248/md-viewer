@@ -55,12 +55,12 @@ final class PerformanceTests: XCTestCase {
         }
     }
 
-    // MARK: - KaTeX Performance
+    // MARK: - Math Renderer Performance
 
-    func testKaTeXRendererPerformance() {
+    func testMathRendererPerformance() {
         let html = MarkdownParser.toHTML(Self.sampleMarkdown)
         measure {
-            _ = KaTeXRenderer.renderMath(in: html)
+            _ = MathRenderer.renderMath(in: html)
         }
     }
 

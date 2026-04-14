@@ -44,15 +44,12 @@ struct MarkdownRendererSuite {
         #expect(MarkdownRenderer.hasMermaid("```mermaid\ngraph TD\n```"))
     }
 
-    @Test func selfContainedHTMLInlinesKaTeXFonts() {
+    @Test func selfContainedHTMLContainsMathML() {
         let html = MarkdownRenderer.buildSelfContainedHTML(
             markdown: "$x^2$", bundle: testBundle
         )
-        // woff2 fonts should be inlined as data URIs
-        #expect(html.contains("data:font/woff2;base64,"))
-        // No woff2 references should remain as relative paths
-        // (woff/ttf fallbacks are OK — browsers won't try them once woff2 loads)
-        #expect(!html.contains(".woff2)"))
+        // Temml renders math as MathML (no custom fonts needed on macOS)
+        #expect(html.contains("<math"))
     }
 
     @Test func hasMermaidReturnsFalseForNormal() {
@@ -411,38 +408,38 @@ struct HighlightRendererSuite {
     }
 }
 
-// MARK: - KaTeXRenderer
+// MARK: - MathRenderer
 
-struct KaTeXRendererSuite {
+struct MathRendererSuite {
     @Test func noDollarSignsUnchanged() {
         let html = "<p>No math here</p>"
-        #expect(KaTeXRenderer.renderMath(in: html, bundle: testBundle) == html)
+        #expect(MathRenderer.renderMath(in: html, bundle: testBundle) == html)
     }
 
     @Test func rendersMathCodeBlock() {
         let html = "<pre><code class=\"language-math\">E = mc^2</code></pre>"
-        let result = KaTeXRenderer.renderMath(in: html, bundle: testBundle)
+        let result = MathRenderer.renderMath(in: html, bundle: testBundle)
         #expect(!result.contains("language-math"))
-        #expect(result.contains("katex"))
+        #expect(result.contains("<math"))
     }
 
     @Test func rendersDisplayMath() {
         let html = "<p>$$E = mc^2$$</p>"
-        let result = KaTeXRenderer.renderMath(in: html, bundle: testBundle)
-        #expect(result.contains("katex"))
+        let result = MathRenderer.renderMath(in: html, bundle: testBundle)
+        #expect(result.contains("<math"))
         #expect(!result.contains("$$"))
     }
 
     @Test func rendersInlineMath() {
         let html = "<p>$x^2$</p>"
-        let result = KaTeXRenderer.renderMath(in: html, bundle: testBundle)
-        #expect(result.contains("katex"))
+        let result = MathRenderer.renderMath(in: html, bundle: testBundle)
+        #expect(result.contains("<math"))
     }
 
     @Test func doesNotRenderMathInsideCode() {
         let html = "<code>$x$</code>"
-        let result = KaTeXRenderer.renderMath(in: html, bundle: testBundle)
-        #expect(!result.contains("katex"))
+        let result = MathRenderer.renderMath(in: html, bundle: testBundle)
+        #expect(!result.contains("<math"))
         #expect(result.contains("$x$"))
     }
 }

@@ -34,7 +34,7 @@ Double-click any `.md` file to see it rendered beautifully, or press **Space** i
 
 - **GitHub-style rendering** — headings, tables, task lists, strikethrough, blockquotes
 - **Syntax highlighting** — common languages via highlight.js
-- **Math formulas** — `$...$` inline, `$$...$$` display, and ` ```math ` code blocks via KaTeX
+- **Math formulas** — `$...$` inline, `$$...$$` display, and ` ```math ` code blocks via Temml (MathML)
 - **Mermaid diagrams** — flowcharts, sequence diagrams, etc. (lazy-loaded)
 - **Footnotes** — `[^1]` syntax with clickable back-references
 - **Emoji shortcodes** — `:rocket:` → 🚀
@@ -112,7 +112,7 @@ Shared/                                # Shared between app and extension
 ├── MarkdownParser.swift               # cmark-gfm parser with GFM extensions + footnotes
 ├── MarkdownRenderer.swift             # File I/O, HTML assembly, local image inlining
 ├── HighlightRenderer.swift            # Syntax highlighting via JavaScriptCore
-├── KaTeXRenderer.swift                # Math rendering via JavaScriptCore
+├── MathRenderer.swift                 # Math rendering via JavaScriptCore (Temml)
 ├── RenderOptions.swift                # Shared settings constants and rendering options
 ├── LinkRouter.swift                   # Link click classification and routing
 ├── JSContextCache.swift               # Thread-safe lazy JSContext cache
@@ -121,12 +121,12 @@ Shared/                                # Shared between app and extension
     ├── template.html                  # HTML template with JS bridge + heading slugs
     ├── custom.css                     # Shared layout styling (single source of truth)
     ├── highlight.min.js               # Syntax highlighting engine
-    ├── katex.min.js                   # Math rendering engine
+    ├── temml.min.js                   # Math rendering engine (MathML output)
     ├── mermaid.min.js                 # Diagram rendering (lazy-loaded)
     ├── github-markdown.css            # GitHub-style document styling (light + dark)
     ├── github.min.css                 # Syntax theme (light)
     ├── github-dark.min.css            # Syntax theme (dark)
-    └── katex.min.css                  # Math styling + fonts
+    └── temml.min.css                  # Math layout styling (uses system fonts)
 ```
 
 ### How it works
