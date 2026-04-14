@@ -1,5 +1,4 @@
 import Foundation
-import RegexBuilder
 
 /// Pre-renders syntax highlighting via highlight.js in JavaScriptCore.
 ///
@@ -57,12 +56,6 @@ enum HighlightRenderer {
         globalName: "hljs"
     )
 
-    private nonisolated(unsafe) static let codeBlockRegex = Regex {
-        "<pre><code class=\"language-"
-        Capture { OneOrMore(.reluctant) { /[^"]/ } }
-        "\">"
-        Capture { ZeroOrMore(.reluctant) { /./ } }
-        "</code></pre>"
-    }
-    .dotMatchesNewlines()
+    private nonisolated(unsafe) static let codeBlockRegex =
+        /<pre><code class="language-([^"]+)">([\s\S]*?)<\/code><\/pre>/
 }

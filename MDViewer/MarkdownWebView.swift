@@ -92,24 +92,48 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
         panel.nameFieldStringValue = title.replacingOccurrences(of: ".md", with: ".pdf")
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
-        let config = WKPDFConfiguration()
-        webView.createPDF(configuration: config) { result in
-            do {
-                try result.get().write(to: url)
-            } catch {
-                Task { @MainActor in NSAlert(error: error).runModal() }
+        withLightAppearance {
+            let config = WKPDFConfiguration()
+            self.webView.createPDF(configuration: config) { result in
+                Task { @MainActor in self.restoreAppearance() }
+                do {
+                    try result.get().write(to: url)
+                } catch {
+                    Task { @MainActor in NSAlert(error: error).runModal() }
+                }
             }
         }
     }
 
     func printContent() {
-        let printInfo = NSPrintInfo.shared.copy() as! NSPrintInfo
-        printInfo.isHorizontallyCentered = true
-        printInfo.isVerticallyCentered = false
-        let op = webView.printOperation(with: printInfo)
-        op.showsPrintPanel = true
-        op.showsProgressPanel = true
-        op.run()
+        withLightAppearance {
+            let printInfo = NSPrintInfo.shared.copy() as! NSPrintInfo
+            printInfo.isHorizontallyCentered = true
+            printInfo.isVerticallyCentered = false
+            let op = self.webView.printOperation(with: printInfo)
+            op.showsPrintPanel = true
+            op.showsProgressPanel = true
+            op.run()
+            self.restoreAppearance()
+        }
+    }
+
+    // MARK: - Light Mode Export
+
+    private var savedAppearance: NSAppearance?
+
+    /// Temporarily force light appearance on the WebView, wait for CSS
+    /// media queries to re-evaluate, then execute the export action.
+    private func withLightAppearance(action: @escaping () -> Void) {
+        savedAppearance = webView.appearance
+        webView.appearance = NSAppearance(named: .aqua)
+        // Allow one layout cycle for CSS media queries to re-evaluate
+        DispatchQueue.main.async(execute: action)
+    }
+
+    private func restoreAppearance() {
+        webView.appearance = savedAppearance
+        savedAppearance = nil
     }
 
     func forceRerender(markdown: String) {

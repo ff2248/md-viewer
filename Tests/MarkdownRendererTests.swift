@@ -78,6 +78,57 @@ struct MarkdownRendererSuite {
         #expect(!html.contains("mermaid.initialize"))
     }
 
+    @Test func selfContainedHTMLHasNoDarkMode() {
+        let html = MarkdownRenderer.buildSelfContainedHTML(markdown: "# Light only", bundle: testBundle)
+        #expect(!html.contains("prefers-color-scheme: dark"))
+        #expect(!html.contains("prefers-color-scheme:dark"))
+    }
+
+    @Test func stripDarkModeBlocksRemovesDarkMedia() {
+        let css = """
+        body { color: black; }
+        @media (prefers-color-scheme: dark) { body { color: white; } }
+        .footer { margin: 0; }
+        """
+        let result = MarkdownRenderer.stripDarkModeBlocks(in: css)
+        #expect(!result.contains("prefers-color-scheme"))
+        #expect(result.contains("color: black"))
+        #expect(result.contains(".footer"))
+    }
+
+    @Test func stripDarkModeBlocksUnwrapsLightMedia() {
+        let css = """
+        .base { font-size: 16px; }
+        @media (prefers-color-scheme: light) {
+          .markdown-body, [data-theme="light"] {
+            color-scheme: light;
+            --bgColor-default: #ffffff;
+            --fgColor-default: #1f2328;
+          }
+        }
+        .after { margin: 0; }
+        """
+        let result = MarkdownRenderer.stripDarkModeBlocks(in: css)
+        // Media query wrapper removed
+        #expect(!result.contains("prefers-color-scheme"))
+        // Inner rules preserved unconditionally
+        #expect(result.contains("--bgColor-default: #ffffff"))
+        #expect(result.contains("--fgColor-default: #1f2328"))
+        #expect(result.contains("color-scheme: light"))
+        // Surrounding rules untouched
+        #expect(result.contains(".base"))
+        #expect(result.contains(".after"))
+    }
+
+    @Test func selfContainedHTMLHasLightVariablesUnconditionally() {
+        let html = MarkdownRenderer.buildSelfContainedHTML(markdown: "# Test", bundle: testBundle)
+        // Light color variables must be present (unwrapped from media query)
+        #expect(html.contains("--bgColor-default"))
+        #expect(html.contains("--fgColor-default"))
+        // They must NOT be inside a prefers-color-scheme media query
+        #expect(!html.contains("prefers-color-scheme"))
+    }
+
     @Test func selfContainedHTMLInlinesLocalImagesWhenBaseURLProvided() throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("exptest-\(UUID())")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

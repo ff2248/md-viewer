@@ -62,8 +62,9 @@ enum MarkdownRenderer {
 
         var html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
 
-        for name in cssFiles {
-            let css = readBundleResource(name, "css", bundle: bundle)
+        for name in exportCSSFiles {
+            var css = readBundleResource(name, "css", bundle: bundle)
+            css = stripDarkModeBlocks(in: css)
             html += "<style>" + css + "</style>"
         }
         html += "</head><body>"
@@ -78,8 +79,7 @@ enum MarkdownRenderer {
             html += "var pre=cb.parentElement;var div=document.createElement('div');"
             html += "div.className='mermaid';div.textContent=cb.textContent;"
             html += "pre.parentElement.replaceChild(div,pre);});"
-            html += "var mt=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'default';"
-            html += "mermaid.initialize({startOnLoad:false,theme:mt});mermaid.run();"
+            html += "mermaid.initialize({startOnLoad:false,theme:'default'});mermaid.run();"
             html += "</script>"
         }
 
@@ -122,11 +122,36 @@ enum MarkdownRenderer {
         html.replacing(eventHandlerRegex, with: "")
     }
 
+    /// Force light mode in CSS for exported HTML.
+    ///
+    /// Two operations:
+    /// 1. Strip `@media (prefers-color-scheme: dark) { ... }` blocks entirely.
+    /// 2. Unwrap `@media (prefers-color-scheme: light) { ... }` blocks — remove
+    ///    the media query wrapper but keep the inner rules so they apply
+    ///    unconditionally. Without this, a dark-mode reader's browser matches
+    ///    neither media query, leaving all CSS variables undefined.
+    static func stripDarkModeBlocks(in css: String) -> String {
+        var result = css.replacing(darkModeBlockRegex, with: "")
+        result = result.replacing(lightModeBlockRegex) { match in
+            String(match.output.1)
+        }
+        return result
+    }
+
+    private nonisolated(unsafe) static let darkModeBlockRegex =
+        /@media\s*\(prefers-color-scheme:\s*dark\)\s*\{(?:[^{}]*|\{[^{}]*\})*\}/
+    /// Captures the inner content of `@media (prefers-color-scheme: light) { <inner> }`,
+    /// where `<inner>` may itself contain nested `{ }` blocks (e.g. selector bodies).
+    private nonisolated(unsafe) static let lightModeBlockRegex =
+        /@media\s*\(prefers-color-scheme:\s*light\)\s*\{((?:[^{}]*|\{[^{}]*\})*)}/
     private nonisolated(unsafe) static let eventHandlerRegex = /\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/
         .ignoresCase()
     private nonisolated(unsafe) static let imgSrcRegex = /src="([^"]+)"/
 
-    private static let cssFiles = ["github-markdown", "github.min", "github-dark.min", "temml.min", "custom"]
+    /// CSS for exported HTML — excludes github-dark.min (dark-only highlight theme);
+    /// remaining dark blocks in github-markdown.css and custom.css are stripped
+    /// by stripDarkModeBlocks. In-app CSS is declared in template.html <link> tags.
+    private static let exportCSSFiles = ["github-markdown", "github.min", "temml.min", "custom"]
     private static let resourceCache = OSAllocatedUnfairLock<[String: String]>(initialState: [:])
 
     private static func readBundleResource(_ name: String, _ ext: String, bundle: Bundle) -> String {
