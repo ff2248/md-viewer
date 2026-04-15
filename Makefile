@@ -16,6 +16,9 @@ BUILD_DIR    := $(DERIVED_DATA)/Build/Products/$(CONFIG)
 # Shared xcodebuild args
 XCBUILD := xcodebuild -project $(PROJECT) -scheme $(SCHEME) -derivedDataPath $(DERIVED_DATA)
 
+# LaunchServices registration helper (macOS has no $PATH entry for this)
+LSREGISTER := /System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister
+
 # ─── Targets ──────────────────────────────────────────────────────
 
 ## help: Show this help
@@ -43,9 +46,14 @@ install: build
 	@rm -rf "$(INSTALL_DIR)/$(APP_NAME)"
 	@cp -R "$(BUILD_DIR)/$(APP_NAME)" "$(INSTALL_DIR)/"
 	@qlmanage -r >/dev/null 2>&1
-	@# Unregister the build-dir copy so LaunchServices doesn't prefer it over /Applications
-	@/System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister -u "$(BUILD_DIR)/$(APP_NAME)" 2>/dev/null || true
-	@/System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister -f "$(INSTALL_DIR)/$(APP_NAME)"
+	@# Unregister every non-/Applications copy so LaunchServices can't pick a
+	@# stale Debug/DerivedData build over the freshly-installed one.
+	@for p in "$(BUILD_DIR)/$(APP_NAME)" \
+	          "$(DERIVED_DATA)/Build/Products/Debug/$(APP_NAME)" \
+	          $(HOME)/Library/Developer/Xcode/DerivedData/MDViewer-*/Build/Products/*/$(APP_NAME); do \
+	    [ -d "$$p" ] && $(LSREGISTER) -u "$$p" >/dev/null 2>&1 || true; \
+	done
+	@$(LSREGISTER) -f "$(INSTALL_DIR)/$(APP_NAME)"
 	@# Set MDViewer as the default handler for Markdown files
 	@/usr/bin/swift -e 'import CoreServices; import Foundation; LSSetDefaultRoleHandlerForContentType("net.daringfireball.markdown" as NSString, .all, "$(BUNDLE_ID)" as NSString)' 2>/dev/null || true
 	@echo ""
@@ -59,6 +67,7 @@ install: build
 
 ## uninstall: Remove MDViewer from /Applications
 uninstall:
+	@$(LSREGISTER) -u "$(INSTALL_DIR)/$(APP_NAME)" >/dev/null 2>&1 || true
 	@rm -rf "$(INSTALL_DIR)/$(APP_NAME)"
 	@qlmanage -r >/dev/null 2>&1
 	@echo "MDViewer uninstalled."
