@@ -41,6 +41,7 @@ Double-click any `.md` file to see it rendered beautifully, or press **Space** i
 - **Quick Look** — press Space in Finder to preview any `.md` file, with inline local images
 - **TOC sidebar** — collapsible heading navigation with click-to-scroll
 - **Export** — save as PDF or self-contained HTML, or print via system dialog
+- **Copy as Markdown** — right-click or ⇧⌘C copies the original Markdown source of the current selection (block-level granularity); pastes cleanly into GitHub, Slack, or any Markdown editor. Empty selection is a no-op.
 - **CJK support** — full UTF-8 including Chinese, Japanese, Korean
 - **Offline** — all dependencies bundled, zero network requests
 
@@ -54,6 +55,7 @@ Double-click any `.md` file to see it rendered beautifully, or press **Space** i
 | ⇧⌘E | Open in external editor |
 | ⌘E | Export as PDF |
 | ⌘P | Print |
+| ⇧⌘C | Copy selection as Markdown |
 | ⌘, | Toggle settings panel |
 | ⇧⌘S | Toggle TOC sidebar |
 | ← / → | Collapse / expand TOC heading |

@@ -23,6 +23,7 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
     private var pendingMarkdown: String?
     private var lastRendered: String?
     private var mermaidInjected = false
+    private(set) var currentMarkdown: String = ""
     private let bundle: Bundle
 
     private static var cachedMermaidJS: String?
@@ -41,6 +42,8 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
         webView.underPageBackgroundColor = .clear
 
         super.init()
+
+        (webView as? NonClickThroughWebView)?.copyAsMarkdownTarget = self
 
         let weakHandler = WeakScriptMessageHandler(self)
         uc.add(weakHandler, name: "headings")
@@ -118,6 +121,25 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
         }
     }
 
+    /// Copies the Markdown source of the current selection to the general
+    /// pasteboard as plain text, at block-level granularity. No-op if the
+    /// selection is empty or resolves to no blocks with data-sourcepos.
+    func copySelectionAsMarkdown() {
+        guard !currentMarkdown.isEmpty else { return }
+        let snapshot = currentMarkdown
+        let snapshotOptions = options
+        webView.evaluateJavaScript("getSelectedBlockRange()") { result, _ in
+            guard let dict = result as? [String: Any],
+                  let start = dict["startLine"] as? Int,
+                  let end = dict["endLine"] as? Int else { return }
+            let preprocessed = MarkdownParser.preprocess(snapshot, options: snapshotOptions)
+            guard let slice = MarkdownParser.extractLines(preprocessed, startLine: start, endLine: end) else { return }
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            pb.setString(slice, forType: .string)
+        }
+    }
+
     // MARK: - Light Mode Export
 
     private var savedAppearance: NSAppearance?
@@ -142,6 +164,7 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
     }
 
     func render(markdown: String) {
+        currentMarkdown = markdown
         guard markdown != lastRendered else { return }
         pendingMarkdown = markdown
         if isReady {
@@ -287,8 +310,37 @@ private class WeakScriptMessageHandler: NSObject, WKScriptMessageHandler {
 /// Prevents click-through on inactive windows.
 /// WKWebView defaults acceptsFirstMouse to true, causing clicks that
 /// activate the window to also trigger web content interactions.
-private class NonClickThroughWebView: WKWebView {
+/// Also injects a "Copy as Markdown" item into the right-click context menu.
+private final class NonClickThroughWebView: WKWebView {
+    weak var copyAsMarkdownTarget: WebViewProxy?
+
     override func acceptsFirstMouse(for _: NSEvent?) -> Bool {
         false
+    }
+
+    @MainActor
+    override func willOpenMenu(_ menu: NSMenu, with _: NSEvent) {
+        guard copyAsMarkdownTarget != nil else { return }
+        // Avoid duplicates if AppKit reopens the same menu
+        if menu.items.contains(where: { $0.action == #selector(copyAsMarkdownAction) && $0.target === self }) {
+            return
+        }
+        let item = NSMenuItem(title: "Copy as Markdown",
+                              action: #selector(copyAsMarkdownAction),
+                              keyEquivalent: "")
+        item.target = self
+        // WKMenuItemIdentifierCopy is a private WebKit identifier (not in
+        // public headers). If Apple ever renames it our item just falls
+        // through to `addItem` and appears at the bottom — still
+        // functional, just less discoverable.
+        if let copyIndex = menu.items.firstIndex(where: { $0.identifier?.rawValue == "WKMenuItemIdentifierCopy" }) {
+            menu.insertItem(item, at: copyIndex + 1)
+        } else {
+            menu.addItem(item)
+        }
+    }
+
+    @MainActor @objc private func copyAsMarkdownAction() {
+        copyAsMarkdownTarget?.copySelectionAsMarkdown()
     }
 }

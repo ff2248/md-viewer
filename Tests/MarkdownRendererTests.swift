@@ -58,7 +58,7 @@ struct MarkdownRendererSuite {
 
     @Test func selfContainedHTMLContainsRenderedContent() {
         let html = MarkdownRenderer.buildSelfContainedHTML(markdown: "# Hello", bundle: testBundle)
-        #expect(html.contains("<h1>"))
+        #expect(html.contains("<h1")) // sourcepos may add attributes: <h1 data-sourcepos="...">
         #expect(html.contains("Hello"))
         #expect(html.contains("markdown-body"))
     }
@@ -150,6 +150,24 @@ struct MarkdownRendererSuite {
         // No baseURL → images stay as relative references (will fail when HTML is moved)
         #expect(!html.contains("data:image/png;base64"))
     }
+
+    @Test func renderToHTMLPreservesSourcepos() {
+        let md = """
+        # Title
+
+        Paragraph.
+
+        ```swift
+        let x = 1
+        ```
+
+        $x^2$
+        """
+        let html = MarkdownRenderer.renderToHTML(md, bundle: testBundle, options: options())
+        #expect(html.contains("data-sourcepos=\"1:1-1:7\"")) // heading
+        #expect(html.contains("data-sourcepos=\"3:1-3:10\"")) // paragraph
+        #expect(html.contains("data-sourcepos=\"5:1-7:3\"")) // fenced code
+    }
 }
 
 // MARK: - MarkdownParser
@@ -157,14 +175,14 @@ struct MarkdownRendererSuite {
 struct MarkdownParserSuite {
     @Test func rendersHeading() {
         let html = MarkdownParser.toHTML("# Hello")
-        #expect(html.contains("<h1>"))
+        #expect(html.contains("<h1")) // sourcepos may add attributes: <h1 data-sourcepos="...">
         #expect(html.contains("Hello"))
     }
 
     @Test func rendersGFMTable() {
         let html = MarkdownParser.toHTML("| A | B |\n|---|---|\n| 1 | 2 |")
-        #expect(html.contains("<table>"))
-        #expect(html.contains("<td>"))
+        #expect(html.contains("<table")) // sourcepos may add attributes: <table data-sourcepos="...">
+        #expect(html.contains("<td")) // sourcepos may add attributes: <td data-sourcepos="...">
     }
 
     @Test func rendersTaskList() {
@@ -214,14 +232,14 @@ struct HardBreaksSuite {
 struct FrontMatterSuite {
     @Test func strippedByDefault() {
         let html = MarkdownParser.toHTML("---\ntitle: Test\n---\n# Hello")
-        #expect(html.contains("<h1>"))
+        #expect(html.contains("<h1")) // sourcepos may add attributes: <h1 data-sourcepos="...">
         #expect(!html.contains("title: Test"))
     }
 
     @Test func renderedAsTable() {
         let html = MarkdownParser.toHTML("---\ntitle: Test\nauthor: Alice\n---\n# Hello",
                                          options: options(showFrontMatter: true))
-        #expect(html.contains("<table>"))
+        #expect(html.contains("<table")) // sourcepos adds attributes: <table data-sourcepos="...">
         #expect(html.contains("title"))
         #expect(html.contains("Alice"))
     }
@@ -229,8 +247,8 @@ struct FrontMatterSuite {
     @Test func hiddenWhenDisabled() {
         let html = MarkdownParser.toHTML("---\ntitle: Test\n---\n# Hello",
                                          options: options(showFrontMatter: false))
-        #expect(!html.contains("<table>"))
-        #expect(html.contains("<h1>"))
+        #expect(!html.contains("<table"))
+        #expect(html.contains("<h1")) // sourcepos may add attributes: <h1 data-sourcepos="...">
     }
 
     @Test func preservedWithoutFrontMatter() {
@@ -243,13 +261,13 @@ struct FrontMatterSuite {
 
     @Test func emptyValue() throws {
         var text = "---\nkey:\n---\nContent"
-        let table = MarkdownParser.extractFrontMatter(&text)
+        let table = MarkdownParser.extractFrontMatterWithMeta(&text)?.html
         #expect(try #require(table).contains("key"))
     }
 
     @Test func onlyDelimiters() {
         var text = "---\n---\nContent"
-        #expect(MarkdownParser.extractFrontMatter(&text) == nil)
+        #expect(MarkdownParser.extractFrontMatterWithMeta(&text)?.html == nil)
         #expect(text.contains("Content"))
     }
 }
