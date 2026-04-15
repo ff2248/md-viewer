@@ -168,6 +168,49 @@ struct MarkdownRendererSuite {
         #expect(html.contains("data-sourcepos=\"3:1-3:10\"")) // paragraph
         #expect(html.contains("data-sourcepos=\"5:1-7:3\"")) // fenced code
     }
+
+    @Test func mathCodeBlockRendersAsMathMLDespiteSourceposAttribute() {
+        // Regression guard: enabling CMARK_OPT_SOURCEPOS adds an attribute
+        // to <pre>, which broke MathRenderer's exact-match regex.
+        let html = MarkdownRenderer.renderToHTML("```math\nx^2\n```", bundle: testBundle, options: options())
+        #expect(html.contains("<math"))
+        #expect(!html.contains("class=\"language-math\""))
+    }
+
+    @Test func mathCodeBlockCarriesSourceposForwardOnWrapper() {
+        // Copy as Markdown needs data-sourcepos on whatever block the math
+        // renders into, so selections inside the rendered math still resolve.
+        let html = MarkdownRenderer.renderToHTML("```math\nx^2\n```", bundle: testBundle, options: options())
+        #expect(html.contains("data-sourcepos=\"1:1-3:3\""))
+    }
+
+    @Test func highlightedCodeBlockKeepsSourcepos() {
+        // Same regression: HighlightRenderer used to rewrite <pre> and
+        // drop the attribute; it now carries <pre>'s attributes through.
+        let html = MarkdownRenderer.renderToHTML("```swift\nlet x = 1\n```", bundle: testBundle, options: options())
+        #expect(html.contains("class=\"hljs language-swift\""))
+        #expect(html.contains("data-sourcepos=\"1:1-3:3\""))
+    }
+
+    @Test func mermaidCodeBlockKeepsSourceposThroughPipeline() {
+        // HighlightRenderer passes mermaid through unchanged; the sourcepos
+        // on the original <pre> must survive into the final HTML so the
+        // template's client-side transform can hoist it onto the <div class="mermaid">.
+        let html = MarkdownRenderer.renderToHTML("```mermaid\ngraph TD\n```", bundle: testBundle, options: options())
+        #expect(html.contains("language-mermaid"))
+        #expect(html.contains("data-sourcepos=\"1:1-3:3\""))
+    }
+
+    @Test func nestedBlockquoteHasNestedSourcepos() {
+        // "Copy as Markdown" uses range.intersectsNode, so selecting a word
+        // inside the inner paragraph intersects BOTH the paragraph and the
+        // outer blockquote and yields the blockquote's full range — which
+        // keeps the `> ` prefix in the pasted Markdown. Verify both blocks
+        // carry sourcepos so that behaviour is grounded in the HTML shape.
+        let html = MarkdownRenderer.renderToHTML("> outer\n>\n> inner", bundle: testBundle, options: options())
+        #expect(html.contains("<blockquote data-sourcepos=\"1:1-3:7\""))
+        #expect(html.contains("data-sourcepos=\"3:3-3:7\"")) // inner paragraph
+    }
 }
 
 // MARK: - MarkdownParser

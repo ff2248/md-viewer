@@ -30,6 +30,11 @@
                         var div = document.createElement('div');
                         div.className = 'mermaid';
                         div.textContent = cb.textContent;
+                        // Carry data-sourcepos onto the replacement so
+                        // "Copy as Markdown" still resolves selections
+                        // that intersect a rendered diagram.
+                        var sp = pre.getAttribute('data-sourcepos');
+                        if (sp) div.setAttribute('data-sourcepos', sp);
                         pre.parentElement.replaceChild(div, pre);
                     });
                     if (typeof mermaid !== 'undefined') {
@@ -73,40 +78,38 @@
         }
 
         // Returns {startLine, endLine} (1-based, inclusive) covering every block
-        // the current selection touches, or null if there's no selection or no
-        // ancestor has data-sourcepos. Line numbers match cmark-gfm's sourcepos
-        // output, which refers to the pre-processed Markdown (front matter
-        // stripped, emoji shortcodes replaced).
+        // the selection touches, or null if empty. Line numbers match
+        // cmark-gfm's sourcepos output.
+        //
+        // We scan every [data-sourcepos] block and collect those the selection
+        // Range intersects — NOT just walking up from the endpoints. Walking
+        // endpoints misses atomic inline elements (rendered <math>, images,
+        // SVGs) that WebKit skips over when computing startContainer/
+        // endContainer: a selection that visually crosses a formula often has
+        // endpoints in the surrounding paragraphs, so the formula's own block
+        // would never be seen. intersectsNode catches it.
         function getSelectedBlockRange() {
             var sel = window.getSelection();
             if (!sel || sel.isCollapsed || sel.rangeCount === 0) return null;
-
-            function closestBlock(node) {
-                var el = node.nodeType === 1 ? node : node.parentElement;
-                while (el && !el.hasAttribute('data-sourcepos')) el = el.parentElement;
-                return el;
-            }
-
-            function parseRange(el) {
-                // Format: "startLine:startCol-endLine:endCol"
-                var parts = el.getAttribute('data-sourcepos').split('-');
-                return {
-                    startLine: parseInt(parts[0].split(':')[0], 10),
-                    endLine:   parseInt(parts[1].split(':')[0], 10)
-                };
-            }
-
             var range = sel.getRangeAt(0);
-            var a = closestBlock(range.startContainer);
-            var b = closestBlock(range.endContainer);
-            if (!a || !b) return null;
 
-            var ra = parseRange(a);
-            var rb = parseRange(b);
-            return {
-                startLine: Math.min(ra.startLine, rb.startLine),
-                endLine:   Math.max(ra.endLine,   rb.endLine)
-            };
+            var minStart = Infinity;
+            var maxEnd = -Infinity;
+            var blocks = document.querySelectorAll('[data-sourcepos]');
+            for (var i = 0; i < blocks.length; i++) {
+                var el = blocks[i];
+                if (!range.intersectsNode(el)) continue;
+                var attr = el.getAttribute('data-sourcepos');
+                var dash = attr.indexOf('-');
+                if (dash < 0) continue;
+                var s = parseInt(attr, 10);             // parseInt stops at ':'
+                var e = parseInt(attr.slice(dash + 1), 10);
+                if (isNaN(s) || isNaN(e)) continue;
+                if (s < minStart) minStart = s;
+                if (e > maxEnd) maxEnd = e;
+            }
+            if (minStart === Infinity) return null;
+            return { startLine: minStart, endLine: maxEnd };
         }
 
         // Intercept link clicks and route through Swift

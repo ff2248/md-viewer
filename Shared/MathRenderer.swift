@@ -31,9 +31,12 @@ enum MathRenderer {
         return result
     }
 
-    /// ```math code blocks (rendered by cmark-gfm as <pre><code class="language-math">)
+    /// ```math code blocks (rendered by cmark-gfm as <pre><code class="language-math">).
+    /// Captures `<pre>`'s attributes as group 1 so we can carry cmark's
+    /// `data-sourcepos` onto the rendered wrapper and keep "Copy as
+    /// Markdown" working for math blocks.
     private nonisolated(unsafe) static let mathCodeBlockRegex =
-        /<pre><code class="language-math">([\s\S]*?)<\/code><\/pre>/
+        /<pre([^>]*)><code class="language-math">([\s\S]*?)<\/code><\/pre>/
 
     private static func replaceMathCodeBlocks(in html: String, context: JSContext) -> String {
         let matches = Array(html.matches(of: mathCodeBlockRegex))
@@ -42,9 +45,10 @@ enum MathRenderer {
         var lastEnd = html.startIndex
         for match in matches {
             result += html[lastEnd ..< match.range.lowerBound]
-            let expr = String(match.output.1).htmlUnescaped.trimmingCharacters(in: .whitespacesAndNewlines)
+            let preAttrs = String(match.output.1)
+            let expr = String(match.output.2).htmlUnescaped.trimmingCharacters(in: .whitespacesAndNewlines)
             if let rendered = renderMath(expr, displayMode: true, context: context) {
-                result += rendered
+                result += "<div\(preAttrs)>\(rendered)</div>"
             } else {
                 result += html[match.range]
             }
