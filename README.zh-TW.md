@@ -65,13 +65,16 @@
 
 ## 安裝
 
-### 前置需求
+### Homebrew（建議）
 
-- macOS 14.0（Sonoma）或更新版本
-- Xcode Command Line Tools（`xcode-select --install`）
-- [xcodegen](https://github.com/yonaskolb/XcodeGen)：`brew install xcodegen`
+```bash
+brew tap ff2248/mdviewer
+brew install --cask mdviewer
+```
 
-### 一鍵安裝
+### 從原始碼編譯
+
+需要 macOS 14+、Xcode 16+ 和 [xcodegen](https://github.com/yonaskolb/XcodeGen)（`brew install xcodegen`）。
 
 ```bash
 git clone https://github.com/ff2248/md-viewer.git
@@ -79,9 +82,30 @@ cd md-viewer
 make install
 ```
 
-完成。`make install` 會自動編譯、複製到 `/Applications`、並啟用 Quick Look 擴充功能。
+兩種方式都會安裝到 `/Applications` 並啟用 Quick Look 擴充功能。
 
 > 首次啟動時，macOS 可能會阻擋此應用程式。請前往**系統設定 → 隱私權與安全性 → 仍要打開**以允許執行。
+
+### 升級
+
+```bash
+# Homebrew
+brew upgrade mdviewer
+
+# 從原始碼安裝的版本
+git pull
+make install
+```
+
+### 解除安裝
+
+```bash
+# Homebrew
+brew uninstall mdviewer
+
+# 從原始碼安裝的版本
+make uninstall
+```
 
 ### 其他開啟方式
 
@@ -102,8 +126,10 @@ make install
 ```
 MDViewer/                              # SwiftUI 主應用程式
 ├── MDViewerApp.swift                  # 應用程式進入點、選單指令、檔案處理
+├── MarkdownDocument.swift             # FileDocument（唯讀，每個視窗一份）
 ├── ContentView.swift                  # 主版面配置與目錄側邊欄
-└── MarkdownWebView.swift              # WKWebView 代理、PDF/HTML 匯出、列印
+├── MarkdownWebView.swift              # WKWebView 代理、PDF/HTML 匯出、列印
+└── FileWatcher.swift                  # 外部檔案變更偵測
 
 MDViewerQuickLook/                     # Quick Look 擴充功能（沙盒化）
 └── PreviewViewController.swift        # 以獨立 HTML 回傳 QLPreviewReply
@@ -126,7 +152,8 @@ Shared/                                # 主程式與擴充功能共用
     ├── github-markdown.css            # GitHub 風格文件樣式（淺色 + 深色）
     ├── github.min.css                 # 語法主題（淺色）
     ├── github-dark.min.css            # 語法主題（深色）
-    └── temml.min.css                  # 數學排版樣式（使用系統字型）
+    ├── temml.min.css                  # 數學排版樣式（使用系統字型）
+    └── Temml.woff2                    # 數學手寫字型（用於 \mathscr）
 ```
 
 ### 運作原理

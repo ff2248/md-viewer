@@ -41,17 +41,12 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             build
 
-      - name: Validate build output
-        run: test -d "build/Build/Products/Release/MDViewer.app" || exit 1
-
       - name: Create DMG
         run: |
           DMG_NAME="MDViewer-${GITHUB_REF_NAME}.dmg"
           scripts/create_dmg.sh "build/Build/Products/Release/MDViewer.app" "$DMG_NAME"
+          shasum -a 256 "$DMG_NAME" > "${DMG_NAME}.sha256"
           echo "DMG_NAME=$DMG_NAME" >> $GITHUB_ENV
-
-      - name: Generate checksum
-        run: shasum -a 256 "$DMG_NAME" > "${DMG_NAME}.sha256"
 
       - name: Upload DMG to Release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
@@ -59,3 +54,56 @@ jobs:
           files: |
             ${{ env.DMG_NAME }}
             ${{ env.DMG_NAME }}.sha256
+
+      - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555 # v0.10.0
+        with:
+          ssh-private-key: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+
+      - name: Update Homebrew Cask
+        run: |
+          set -euo pipefail
+
+          VERSION="${GITHUB_REF_NAME#v}"
+          SHA256=$(awk '{print $1}' "${DMG_NAME}.sha256")
+
+          rm -rf /tmp/tap
+          git clone git@github.com:ff2248/homebrew-mdviewer.git /tmp/tap
+          cd /tmp/tap
+          mkdir -p Casks
+
+          {
+            printf 'cask "mdviewer" do\n'
+            printf '  version "%s"\n' "${VERSION}"
+            printf '  sha256 "%s"\n' "${SHA256}"
+            cat << 'CASK'
+
+            url "https://github.com/ff2248/md-viewer/releases/download/v#{version}/MDViewer-v#{version}.dmg"
+            name "MDViewer"
+            desc "Minimal Markdown viewer with Quick Look support"
+            homepage "https://github.com/ff2248/md-viewer"
+
+            livecheck do
+              url :url
+              strategy :github_latest
+            end
+
+            depends_on macos: ">= :sonoma"
+
+            app "MDViewer.app"
+
+            zap trash: [
+              "~/Library/Containers/io.github.ff2248.MDViewer.QuickLook",
+              "~/Library/HTTPStorages/io.github.ff2248.MDViewer",
+              "~/Library/Preferences/io.github.ff2248.MDViewer.plist",
+              "~/Library/Saved Application State/io.github.ff2248.MDViewer.savedState",
+            ]
+          end
+          CASK
+          } > Casks/mdviewer.rb
+
+          brew style --fix Casks/mdviewer.rb
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/mdviewer.rb
+          git diff --cached --quiet || { git commit -m "Update MDViewer to ${VERSION}" && git push; }

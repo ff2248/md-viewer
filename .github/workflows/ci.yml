@@ -26,7 +26,7 @@ jobs:
         run: xcodegen generate
 
       - name: Lint
-        run: swiftformat --lint MDViewer Shared MDViewerQuickLook Tests --swiftversion 6
+        run: swiftformat MDViewer Shared MDViewerQuickLook Tests --lint --swiftversion 6
 
       - name: Test
         run: |

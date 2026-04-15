@@ -65,13 +65,16 @@ Double-click any `.md` file to see it rendered beautifully, or press **Space** i
 
 ## Install
 
-### Prerequisites
+### Homebrew (recommended)
 
-- macOS 14.0 (Sonoma) or later
-- Xcode Command Line Tools (`xcode-select --install`)
-- [xcodegen](https://github.com/yonaskolb/XcodeGen): `brew install xcodegen`
+```bash
+brew tap ff2248/mdviewer
+brew install --cask mdviewer
+```
 
-### One-command install
+### Build from source
+
+Requires macOS 14+, Xcode 16+, and [xcodegen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
 
 ```bash
 git clone https://github.com/ff2248/md-viewer.git
@@ -79,9 +82,30 @@ cd md-viewer
 make install
 ```
 
-That's it. `make install` builds the app, copies it to `/Applications`, and enables the Quick Look extension.
+Both methods install to `/Applications` and enable the Quick Look extension.
 
 > On first launch, macOS may block the app. Go to **System Settings → Privacy & Security → Open Anyway** to allow it.
+
+### Upgrade
+
+```bash
+# Homebrew
+brew upgrade mdviewer
+
+# Built from source
+git pull
+make install
+```
+
+### Uninstall
+
+```bash
+# Homebrew
+brew uninstall mdviewer
+
+# Built from source
+make uninstall
+```
 
 ### Other ways to open files
 
@@ -102,8 +126,10 @@ Right-click any `.md` file → **Get Info** → **Open With** → select **MDVie
 ```
 MDViewer/                              # SwiftUI app
 ├── MDViewerApp.swift                  # App entry, menu commands, file handling
+├── MarkdownDocument.swift             # FileDocument (read-only, per-window)
 ├── ContentView.swift                  # Main layout with TOC sidebar
-└── MarkdownWebView.swift              # WKWebView proxy, PDF/HTML export, print
+├── MarkdownWebView.swift              # WKWebView proxy, PDF/HTML export, print
+└── FileWatcher.swift                  # External file change detection
 
 MDViewerQuickLook/                     # Quick Look extension (sandboxed)
 └── PreviewViewController.swift        # QLPreviewReply with self-contained HTML
@@ -126,7 +152,8 @@ Shared/                                # Shared between app and extension
     ├── github-markdown.css            # GitHub-style document styling (light + dark)
     ├── github.min.css                 # Syntax theme (light)
     ├── github-dark.min.css            # Syntax theme (dark)
-    └── temml.min.css                  # Math layout styling (uses system fonts)
+    ├── temml.min.css                  # Math layout styling (uses system fonts)
+    └── Temml.woff2                    # Math script font (for \mathscr)
 ```
 
 ### How it works
