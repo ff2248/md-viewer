@@ -40,8 +40,10 @@ targets:
     info:
       path: MDViewer/Info.plist
       properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDisplayName: MDViewer
-        NSHumanReadableCopyright: ""
+        NSHumanReadableCopyright: "Copyright © 2025-2026 ff2248"
         CFBundleDocumentTypes:
           - CFBundleTypeName: Markdown Document
             CFBundleTypeRole: Viewer
@@ -59,6 +61,18 @@ targets:
                 - markdown
                 - mdown
                 - mkd
+    postBuildScripts:
+      - script: |
+          SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "dev")
+          cat > "${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/Resources/Credits.html" << EOF
+          <!DOCTYPE html>
+          <html>
+          <body style="font: 11px -apple-system, sans-serif; text-align: center;">
+          <p><a href="https://github.com/ff2248/md-viewer/commit/$SHA">$SHA</a></p>
+          </body>
+          </html>
+          EOF
+        name: Embed git SHA in Credits
     dependencies:
       - target: MDViewerQuickLook
       - package: swift-cmark-gfm

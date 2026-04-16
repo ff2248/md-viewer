@@ -33,12 +33,14 @@ jobs:
 
       - name: Build
         run: |
+          BUILD_NUMBER=$(date +%s)
           xcodebuild -project MDViewer.xcodeproj \
             -scheme MDViewer \
             -configuration Release \
             -derivedDataPath build \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
             build
 
       - name: Create DMG

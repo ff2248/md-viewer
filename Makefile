@@ -12,9 +12,10 @@ BUNDLE_ID    := io.github.ff2248.MDViewer
 # Robust against Apple changing output format, and avoids running xcodebuild during parse.
 DERIVED_DATA := build
 BUILD_DIR    := $(DERIVED_DATA)/Build/Products/$(CONFIG)
+BUILD_NUMBER := $(shell date +%s)
 
 # Shared xcodebuild args
-XCBUILD := xcodebuild -project $(PROJECT) -scheme $(SCHEME) -derivedDataPath $(DERIVED_DATA)
+XCBUILD := xcodebuild -project $(PROJECT) -scheme $(SCHEME) -derivedDataPath $(DERIVED_DATA) CURRENT_PROJECT_VERSION=$(BUILD_NUMBER)
 
 # LaunchServices registration helper (macOS has no $PATH entry for this)
 LSREGISTER := /System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister
