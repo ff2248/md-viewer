@@ -4,11 +4,11 @@
 
 <img src="docs/icon.png" width="128" height="128" alt="MDViewer">
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue.svg) ![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-lightgrey.svg) ![Swift](https://img.shields.io/badge/swift-6-F05138.svg) ![License](https://img.shields.io/badge/license-MIT-green.svg)
+![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-lightgrey.svg) ![Swift](https://img.shields.io/badge/swift-6-F05138.svg) ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-**極簡、快速的 macOS Markdown 檢視器 — 支援 Quick Look 快速預覽**
+**macOS 原生 Markdown 檢視器，支援 Quick Look — 極簡、快速、離線、免費**
 
-按兩下任何 `.md` 檔案即可看到美觀的渲染結果，或在 Finder 中按**空白鍵**即時預覽。沒有編輯器的負擔、不用設定、不用等待。專心閱讀就好。
+按兩下任何 `.md` 檔案即可看到美觀的渲染結果，或在 Finder 中按**空白鍵**即時 Quick Look 預覽。GitHub 風格 Markdown、數學公式、Mermaid 圖表，皆為原生渲染。沒有編輯器的負擔、不用設定、無需網路。專心閱讀就好。
 
 繁體中文 | [English](README.md)
 
@@ -21,12 +21,22 @@
 <div align="center">
 
 **淺色模式** — GitHub 風格渲染搭配目錄側邊欄
-<img src="docs/screenshot-light.png" alt="MDViewer 淺色模式" width="800">
+<img src="docs/screenshot-light.png" alt="MDViewer 在 macOS 淺色模式下渲染 Markdown 文件，含目錄側邊欄與語法高亮" width="800">
 
 **深色模式** — 自動跟隨系統外觀切換
-<img src="docs/screenshot-dark.png" alt="MDViewer 深色模式" width="800">
+<img src="docs/screenshot-dark.png" alt="MDViewer 在 macOS 深色模式下的 Markdown 預覽，自動跟隨系統外觀" width="800">
 
 </div>
+
+---
+
+## 這是給誰用的？
+
+macOS 沒有內建的 Markdown 渲染工具 — 用「預覽程式」打開 `.md` 只會看到原始碼。MDViewer 填補這塊：原生、專注的閱讀器，在 Finder 按兩下檔案或按空白鍵就能美觀地呈現 `.md`。
+
+**類似工具：**
+- **只需要 Quick Look？** [QLMarkdown](https://github.com/sbarex/QLMarkdown) 是開源的 Quick Look 擴充。MDViewer 同樣提供 Quick Look，並多了獨立閱讀視窗，內建目錄側邊欄、頁內搜尋、PDF/HTML 匯出與縮放。
+- **想編輯 Markdown？** 可以試試 [Obsidian](https://obsidian.md)、[Typora](https://typora.io)、[iA Writer](https://ia.net/writer)、[MacDown](https://macdown.uranusjr.com) 或 [VS Code](https://code.visualstudio.com)。讓 MDViewer 維持為 `.md` 預設開啟程式，在 MDViewer 內指定任一款作為外部編輯器，按 ⇧⌘E 即可開啟目前檔案編輯 — 存檔後 MDViewer 會即時刷新內容。
 
 ---
 
@@ -40,10 +50,13 @@
 - **Emoji 短碼** — `:rocket:` → 🚀
 - **Quick Look** — 在 Finder 中選取 `.md` 按空白鍵即可預覽，支援內嵌本地圖片
 - **目錄側邊欄** — 可收合的標題導覽，點擊即跳轉
-- **匯出** — 儲存為 PDF 或獨立 HTML，或透過系統列印對話框列印
+- **頁內搜尋** — ⌘F 開啟搜尋列，支援符合項高亮與上一個／下一個導覽
+- **匯出** — 儲存為 PDF 或獨立 HTML（所有 JS/CSS 內嵌），或透過系統列印對話框列印
 - **Copy as Markdown** — 以右鍵選單或 ⇧⌘C 複製目前選取範圍的原始 Markdown 原始碼（以區塊為單位），可直接貼到 GitHub、Slack 或任何 Markdown 編輯器。選取為空時不動作。
+- **程式碼區塊一鍵複製** — 每個渲染後的程式碼區塊角落都有複製按鈕
+- **檢查更新** — 選單提供手動更新檢查，與 GitHub 最新 release 比對版本
 - **CJK 支援** — 完整 UTF-8，支援中文、日文、韓文
-- **離線使用** — 所有相依套件皆已打包，零網路請求
+- **離線使用** — 所有相依套件皆已打包，零網路請求（僅手動檢查更新時連線）
 
 ---
 
@@ -56,6 +69,7 @@
 | ⌘E | 匯出為 PDF |
 | ⌘P | 列印 |
 | ⇧⌘C | 複製選取範圍為 Markdown |
+| ⌘F | 頁內搜尋 |
 | ⌘, | 切換設定面板 |
 | ⇧⌘S | 切換目錄側邊欄 |
 | ← / → | 收合 / 展開目錄標題 |
@@ -123,46 +137,13 @@ make uninstall
 
 ---
 
-## 架構
+## 運作原理
 
-```
-MDViewer/                              # SwiftUI 主應用程式
-├── MDViewerApp.swift                  # 應用程式進入點、選單指令、檔案處理
-├── MarkdownDocument.swift             # FileDocument（唯讀，每個視窗一份）
-├── ContentView.swift                  # 主版面配置與目錄側邊欄
-├── MarkdownWebView.swift              # WKWebView 代理、PDF/HTML 匯出、列印
-└── FileWatcher.swift                  # 外部檔案變更偵測
+**主應用程式**在 Swift 中透過 cmark-gfm 將 Markdown 解析為 HTML，再透過 JavaScriptCore 預先渲染語法高亮（highlight.js）與數學公式（Temml → MathML），最後將結果注入預載的 WKWebView。瀏覽器中不執行 JavaScript，唯一例外是 Mermaid（需要 DOM）。
 
-MDViewerQuickLook/                     # Quick Look 擴充功能（沙盒化）
-└── PreviewViewController.swift        # 以獨立 HTML 回傳 QLPreviewReply
+**Quick Look 擴充功能**使用 `QLPreviewReply` 資料驅動 API，在沙盒環境內回傳內嵌所有 JS/CSS 的獨立 HTML 讓系統渲染。
 
-Shared/                                # 主程式與擴充功能共用
-├── MarkdownParser.swift               # cmark-gfm 解析器，啟用 GFM 擴充 + 腳註
-├── MarkdownRenderer.swift              # 檔案 I/O、HTML 組裝、本地圖片內嵌
-├── HighlightRenderer.swift            # 透過 JavaScriptCore 執行語法高亮
-├── MathRenderer.swift                 # 透過 JavaScriptCore 執行數學渲染（Temml）
-├── RenderOptions.swift                # 共用設定常數與渲染選項
-├── LinkRouter.swift                   # 連結點擊分類與路由
-├── JSContextCache.swift               # 執行緒安全的延遲 JSContext 快取
-├── StringExtensions.swift             # Emoji 短碼、HTML 跳脫/反跳脫、JS 跳脫
-└── Resources/
-    ├── template.html                  # HTML 範本與 JS bridge + heading slug
-    ├── custom.css                     # 共用版面樣式（單一來源）
-    ├── highlight.min.js               # 語法高亮引擎
-    ├── temml.min.js                   # 數學渲染引擎（MathML 輸出）
-    ├── mermaid.min.js                 # 圖表渲染（延遲載入）
-    ├── github-markdown.css            # GitHub 風格文件樣式（淺色 + 深色）
-    ├── github.min.css                 # 語法主題（淺色）
-    ├── github-dark.min.css            # 語法主題（深色）
-    ├── temml.min.css                  # 數學排版樣式（使用系統字型）
-    └── Temml.woff2                    # 數學手寫字型（用於 \mathscr）
-```
-
-### 運作原理
-
-**主應用程式**在 Swift 中透過 cmark-gfm 將 Markdown 解析為 HTML，再透過 JavaScriptCore 預先渲染語法高亮與數學公式，最後將結果注入預載的 WKWebView。瀏覽器中不執行 JavaScript，唯一例外是 Mermaid（需要 DOM）。
-
-**Quick Look 擴充功能**使用 `QLPreviewReply` 資料驅動 API，回傳內嵌所有 JS/CSS 的獨立 HTML 讓系統渲染。
+`Shared/` 目錄存放主程式與 Quick Look 擴充功能共用的渲染管線與網頁資源，使預覽視窗與主視窗的呈現保持一致。
 
 ---
 

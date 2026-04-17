@@ -4,11 +4,11 @@
 
 <img src="docs/icon.png" width="128" height="128" alt="MDViewer">
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue.svg) ![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-lightgrey.svg) ![Swift](https://img.shields.io/badge/swift-6-F05138.svg) ![License](https://img.shields.io/badge/license-MIT-green.svg)
+![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-lightgrey.svg) ![Swift](https://img.shields.io/badge/swift-6-F05138.svg) ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-**A minimal, fast Markdown viewer for macOS — with Quick Look support**
+**A minimal, native macOS Markdown viewer with Quick Look — fast, offline, free**
 
-Double-click any `.md` file to see it rendered beautifully, or press **Space** in Finder for an instant preview. No editor overhead, no setup, no waiting. Just read.
+Double-click any `.md` file for a beautifully rendered preview, or press **Space** in Finder for instant Quick Look. GitHub-flavored Markdown, math, and Mermaid — all rendered natively. No editor overhead, no setup, no network. Just read.
 
 [繁體中文](README.zh-TW.md) | English
 
@@ -21,12 +21,22 @@ Double-click any `.md` file to see it rendered beautifully, or press **Space** i
 <div align="center">
 
 **Light Mode** — GitHub-style rendering with TOC sidebar
-<img src="docs/screenshot-light-en.png" alt="MDViewer light mode" width="800">
+<img src="docs/screenshot-light-en.png" alt="MDViewer rendering a Markdown document in light mode on macOS, with TOC sidebar and syntax highlighting" width="800">
 
 **Dark Mode** — Automatic dark theme following system appearance
-<img src="docs/screenshot-dark-en.png" alt="MDViewer dark mode" width="800">
+<img src="docs/screenshot-dark-en.png" alt="MDViewer Markdown preview in dark mode on macOS, following system appearance" width="800">
 
 </div>
+
+---
+
+## Who is this for?
+
+macOS has no built-in way to read Markdown — open a `.md` file in Preview and you'll see raw text. MDViewer fills that gap: a native, focused reader that renders `.md` beautifully when you double-click a file or press Space in Finder.
+
+**Similar tools:**
+- **Just need Quick Look?** [QLMarkdown](https://github.com/sbarex/QLMarkdown) is an open-source Quick Look extension. MDViewer includes Quick Look too, plus a standalone reader window with TOC sidebar, find-in-page, PDF/HTML export, and zoom.
+- **Writing Markdown?** Try [Obsidian](https://obsidian.md), [Typora](https://typora.io), [iA Writer](https://ia.net/writer), [MacDown](https://macdown.uranusjr.com), or [VS Code](https://code.visualstudio.com). Keep MDViewer as your default `.md` viewer, pick any of them as your external editor inside MDViewer, and press ⇧⌘E to open the current file there — MDViewer live-refreshes when you save.
 
 ---
 
@@ -40,10 +50,13 @@ Double-click any `.md` file to see it rendered beautifully, or press **Space** i
 - **Emoji shortcodes** — `:rocket:` → 🚀
 - **Quick Look** — press Space in Finder to preview any `.md` file, with inline local images
 - **TOC sidebar** — collapsible heading navigation with click-to-scroll
-- **Export** — save as PDF or self-contained HTML, or print via system dialog
+- **In-page find** — ⌘F opens a find bar with match highlighting and next/previous navigation
+- **Export** — save as PDF or self-contained HTML (all JS/CSS inlined), or print via system dialog
 - **Copy as Markdown** — right-click or ⇧⌘C copies the original Markdown source of the current selection (block-level granularity); pastes cleanly into GitHub, Slack, or any Markdown editor. Empty selection is a no-op.
+- **Code block copy** — every rendered code block has a one-click copy button in its corner
+- **Check for updates** — menu item that compares against the latest GitHub release
 - **CJK support** — full UTF-8 including Chinese, Japanese, Korean
-- **Offline** — all dependencies bundled, zero network requests
+- **Offline** — all dependencies bundled, zero network requests (except manual update check)
 
 ---
 
@@ -56,6 +69,7 @@ Double-click any `.md` file to see it rendered beautifully, or press **Space** i
 | ⌘E | Export as PDF |
 | ⌘P | Print |
 | ⇧⌘C | Copy selection as Markdown |
+| ⌘F | Find in page |
 | ⌘, | Toggle settings panel |
 | ⇧⌘S | Toggle TOC sidebar |
 | ← / → | Collapse / expand TOC heading |
@@ -123,46 +137,13 @@ Right-click any `.md` file → **Get Info** → **Open With** → select **MDVie
 
 ---
 
-## Architecture
+## How it works
 
-```
-MDViewer/                              # SwiftUI app
-├── MDViewerApp.swift                  # App entry, menu commands, file handling
-├── MarkdownDocument.swift             # FileDocument (read-only, per-window)
-├── ContentView.swift                  # Main layout with TOC sidebar
-├── MarkdownWebView.swift              # WKWebView proxy, PDF/HTML export, print
-└── FileWatcher.swift                  # External file change detection
+**Main app** parses Markdown to HTML via cmark-gfm in Swift, pre-renders syntax highlighting (highlight.js) and math (Temml → MathML) via JavaScriptCore, then injects the result into a pre-loaded WKWebView. No JavaScript runs in the browser except Mermaid, which requires DOM.
 
-MDViewerQuickLook/                     # Quick Look extension (sandboxed)
-└── PreviewViewController.swift        # QLPreviewReply with self-contained HTML
+**Quick Look extension** uses the `QLPreviewReply` data-based API — it returns self-contained HTML with all JS/CSS inlined for the system to render inside its sandbox.
 
-Shared/                                # Shared between app and extension
-├── MarkdownParser.swift               # cmark-gfm parser with GFM extensions + footnotes
-├── MarkdownRenderer.swift             # File I/O, HTML assembly, local image inlining
-├── HighlightRenderer.swift            # Syntax highlighting via JavaScriptCore
-├── MathRenderer.swift                 # Math rendering via JavaScriptCore (Temml)
-├── RenderOptions.swift                # Shared settings constants and rendering options
-├── LinkRouter.swift                   # Link click classification and routing
-├── JSContextCache.swift               # Thread-safe lazy JSContext cache
-├── StringExtensions.swift             # Emoji shortcode, HTML escape/unescape, JS escape
-└── Resources/
-    ├── template.html                  # HTML template with JS bridge + heading slugs
-    ├── custom.css                     # Shared layout styling (single source of truth)
-    ├── highlight.min.js               # Syntax highlighting engine
-    ├── temml.min.js                   # Math rendering engine (MathML output)
-    ├── mermaid.min.js                 # Diagram rendering (lazy-loaded)
-    ├── github-markdown.css            # GitHub-style document styling (light + dark)
-    ├── github.min.css                 # Syntax theme (light)
-    ├── github-dark.min.css            # Syntax theme (dark)
-    ├── temml.min.css                  # Math layout styling (uses system fonts)
-    └── Temml.woff2                    # Math script font (for \mathscr)
-```
-
-### How it works
-
-**Main app** parses Markdown to HTML via cmark-gfm in Swift, pre-renders syntax highlighting and math via JavaScriptCore, then injects the result into a pre-loaded WKWebView. No JavaScript runs in the browser except Mermaid (which requires DOM).
-
-**Quick Look extension** uses `QLPreviewReply` data-based API — returns self-contained HTML (all JS/CSS inlined) for the system to render.
+The `Shared/` directory holds the rendering pipeline and web resources used by both the app and the Quick Look extension, so previews and the main window stay visually identical.
 
 ---
 
