@@ -94,6 +94,14 @@ brew tap ff2248/mdviewer
 brew install --cask mdviewer
 ```
 
+➡ 首次開啟請見下方「[首次開啟需授權](#首次開啟需授權)」一節。
+
+### 直接下載
+
+從 [Releases](https://github.com/ff2248/md-viewer/releases/latest) 下載最新的 `MDViewer-vX.Y.Z.dmg`，打開後將 **MDViewer.app** 拖到 `/Applications`。
+
+➡ 首次開啟請見下方「[首次開啟需授權](#首次開啟需授權)」一節。
+
 ### 從原始碼編譯
 
 需要 macOS 14+、Xcode 16+ 和 [xcodegen](https://github.com/yonaskolb/XcodeGen)（`brew install xcodegen`）。
@@ -104,35 +112,32 @@ cd md-viewer
 make install
 ```
 
-兩種方式都會安裝到 `/Applications` 並啟用 Quick Look 擴充功能。
+不需要授權步驟 — 本地編譯的 App 不會被 Gatekeeper 攔截（檔案從未下載，不會帶 quarantine 屬性）。
 
-### 首次開啟可能遇到的問題
+### 首次開啟需授權
 
-MDViewer 目前以 ad-hoc 簽名發佈（尚未加入 Apple Developer Program，因此未經 Apple 公證），首次啟動會被 macOS Gatekeeper 阻擋。自 macOS Sequoia 起，在 Finder 按右鍵選「打開」也無法再繞過，請擇一處理：
+MDViewer 目前以 ad-hoc 簽名發佈，尚未加入 Apple Developer Program，因此未經 Apple 公證。macOS 下載 DMG（不論透過 Homebrew 或直接下載）時都會附上 quarantine 屬性，Gatekeeper 會因此攔截首次啟動。自 macOS Sequoia 起，在 Finder 按右鍵選「打開」也無法繞過，請擇一處理：
 
 - **系統設定（建議）**：開啟 **系統設定 → 隱私權與安全性**，於下方「安全性」區塊點擊 **「強制打開」**，再輸入密碼確認。
 - **終端機一行指令**：`xattr -dr com.apple.quarantine /Applications/MDViewer.app`
 
+每個版本只需要授權一次。
+
 ### 升級
 
-```bash
-# Homebrew
-brew upgrade mdviewer
-
-# 從原始碼安裝的版本
-git pull
-make install
-```
+| 方式 | 指令 |
+|---|---|
+| Homebrew | `brew upgrade mdviewer` |
+| DMG | 下載新版 DMG 取代 `/Applications/MDViewer.app` |
+| 原始碼 | `git pull && make install` |
 
 ### 解除安裝
 
-```bash
-# Homebrew
-brew uninstall mdviewer
-
-# 從原始碼安裝的版本
-make uninstall
-```
+| 方式 | 指令 |
+|---|---|
+| Homebrew | `brew uninstall mdviewer` |
+| DMG | 將 `/Applications/MDViewer.app` 拖到垃圾桶 |
+| 原始碼 | `make uninstall` |
 
 ### 其他開啟方式
 

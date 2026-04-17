@@ -94,6 +94,14 @@ brew tap ff2248/mdviewer
 brew install --cask mdviewer
 ```
 
+➡ On first launch, see [Approve first launch](#approve-first-launch) below.
+
+### Direct download
+
+Download the latest `MDViewer-vX.Y.Z.dmg` from [Releases](https://github.com/ff2248/md-viewer/releases/latest), open it, and drag **MDViewer.app** to `/Applications`.
+
+➡ On first launch, see [Approve first launch](#approve-first-launch) below.
+
 ### Build from source
 
 Requires macOS 14+, Xcode 16+, and [xcodegen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
@@ -104,35 +112,32 @@ cd md-viewer
 make install
 ```
 
-Both methods install to `/Applications` and enable the Quick Look extension.
+No approval step needed — locally built apps bypass Gatekeeper (they never carry the quarantine flag).
 
-### Troubleshooting first launch
+### Approve first launch
 
-MDViewer is currently distributed with ad-hoc signing — it is not enrolled in the Apple Developer Program and therefore not notarized, so Gatekeeper blocks it on first launch. Since macOS Sequoia the right-click "Open" bypass no longer works, so pick one of the following:
+MDViewer is distributed with ad-hoc signing and is not notarized through the Apple Developer Program. When macOS downloads the DMG (via Homebrew or directly) it attaches a quarantine flag, and Gatekeeper blocks the first launch. Since macOS Sequoia the right-click "Open" bypass no longer works — pick one:
 
 - **System Settings (recommended)**: open **System Settings → Privacy & Security**, scroll to the Security section, click **Open Anyway**, then confirm with your password.
 - **Terminal one-liner**: `xattr -dr com.apple.quarantine /Applications/MDViewer.app`
 
+You only need to do this once per version.
+
 ### Upgrade
 
-```bash
-# Homebrew
-brew upgrade mdviewer
-
-# Built from source
-git pull
-make install
-```
+| Method | Command |
+|---|---|
+| Homebrew | `brew upgrade mdviewer` |
+| DMG | Download the new DMG and replace `/Applications/MDViewer.app` |
+| Source | `git pull && make install` |
 
 ### Uninstall
 
-```bash
-# Homebrew
-brew uninstall mdviewer
-
-# Built from source
-make uninstall
-```
+| Method | Command |
+|---|---|
+| Homebrew | `brew uninstall mdviewer` |
+| DMG | Drag `/Applications/MDViewer.app` to the Trash |
+| Source | `make uninstall` |
 
 ### Other ways to open files
 
