@@ -20,11 +20,17 @@
 
 <div align="center">
 
-**淺色模式** — GitHub 風格渲染搭配目錄側邊欄
-<img src="docs/screenshot-light.png" alt="MDViewer 在 macOS 淺色模式下渲染 Markdown 文件，含目錄側邊欄與語法高亮" width="800">
+**主視窗** — GitHub 風格渲染搭配目錄側邊欄，自動淺色 / 深色主題切換
 
-**深色模式** — 自動跟隨系統外觀切換
-<img src="docs/screenshot-dark.png" alt="MDViewer 在 macOS 深色模式下的 Markdown 預覽，自動跟隨系統外觀" width="800">
+<table>
+<tr>
+<td><img src="docs/screenshot-light.png" alt="MDViewer 在 macOS 淺色模式下渲染 Markdown 文件，含目錄側邊欄與語法高亮"></td>
+<td><img src="docs/screenshot-dark.png" alt="MDViewer 在 macOS 深色模式下的 Markdown 預覽，自動跟隨系統外觀"></td>
+</tr>
+</table>
+
+**Quick Look** — 在 Finder 中於任意 `.md` 檔案按空白鍵即可即時預覽
+<img src="docs/screenshot-quicklook-en.png" alt="MDViewer 在 Finder 中以 Quick Look 預覽 Markdown 文件，呈現標題、語法高亮程式碼、表格、引用區塊與數學公式" width="600">
 
 </div>
 

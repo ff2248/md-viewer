@@ -20,11 +20,17 @@ Double-click any `.md` file for a beautifully rendered preview, or press **Space
 
 <div align="center">
 
-**Light Mode** — GitHub-style rendering with TOC sidebar
-<img src="docs/screenshot-light-en.png" alt="MDViewer rendering a Markdown document in light mode on macOS, with TOC sidebar and syntax highlighting" width="800">
+**Main window** — GitHub-style rendering with TOC sidebar, automatic light / dark theme
 
-**Dark Mode** — Automatic dark theme following system appearance
-<img src="docs/screenshot-dark-en.png" alt="MDViewer Markdown preview in dark mode on macOS, following system appearance" width="800">
+<table>
+<tr>
+<td><img src="docs/screenshot-light-en.png" alt="MDViewer rendering a Markdown document in light mode on macOS, with TOC sidebar and syntax highlighting"></td>
+<td><img src="docs/screenshot-dark-en.png" alt="MDViewer Markdown preview in dark mode on macOS, following system appearance"></td>
+</tr>
+</table>
+
+**Quick Look** — press Space on any `.md` file in Finder for an instant preview
+<img src="docs/screenshot-quicklook-en.png" alt="MDViewer Quick Look preview of a Markdown document in Finder, showing rendered headings, syntax-highlighted code, table, blockquote, and math formula" width="600">
 
 </div>
 
