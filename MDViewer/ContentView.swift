@@ -12,6 +12,11 @@ struct ContentView: View {
     @State private var collapsedIDs: Set<String> = []
     @State private var columnVisibility: NavigationSplitViewVisibility = .doubleColumn
     @State private var fileURL: URL?
+    @State private var showFindBar = false
+    @State private var findQuery = ""
+    @State private var findTotal = 0
+    @State private var findCurrent = 0
+    @FocusState private var findFieldFocused: Bool
     @StateObject private var webProxy = WebViewProxy()
     @StateObject private var fileWatcher = FileWatcher()
 
@@ -31,10 +36,15 @@ struct ContentView: View {
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 260, max: 400)
         } detail: {
-            if currentText.isEmpty {
-                emptyState
-            } else {
-                MarkdownWebView(proxy: webProxy, markdown: currentText)
+            VStack(spacing: 0) {
+                if showFindBar {
+                    findBar
+                }
+                if currentText.isEmpty {
+                    emptyState
+                } else {
+                    MarkdownWebView(proxy: webProxy, markdown: currentText)
+                }
             }
         }
         .onDrop(of: [.fileURL], isTargeted: nil) { providers in
@@ -89,10 +99,87 @@ struct ContentView: View {
         .focusedSceneValue(\.webViewProxy, webProxy)
         .focusedSceneValue(\.documentURL, fileURL)
         .focusedSceneValue(\.documentText, currentText)
+        .focusedSceneValue(\.toggleFindBar, toggleFindBar)
         .inspector(isPresented: $globalSettings.showSettings) {
             SettingsView()
                 .inspectorColumnWidth(min: 280, ideal: 320, max: 400)
         }
+    }
+
+    // MARK: - Find Bar
+
+    private var findBar: some View {
+        HStack(spacing: 6) {
+            TextField("Find…", text: $findQuery)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 200)
+                .focused($findFieldFocused)
+                .onSubmit { Task { await runFind(webProxy.findNext) } }
+                .task(id: findQuery) {
+                    try? await Task.sleep(for: .milliseconds(150))
+                    guard !Task.isCancelled else { return }
+                    await runFind { await webProxy.find(findQuery) }
+                }
+
+            if findTotal > 0 {
+                Text("\(findCurrent) of \(findTotal)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            } else if !findQuery.isEmpty {
+                Text("Not found")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Button(action: { Task { await runFind(webProxy.findPrev) } }) {
+                Image(systemName: "chevron.up")
+            }
+            .buttonStyle(.borderless)
+            .disabled(findTotal == 0)
+
+            Button(action: { Task { await runFind(webProxy.findNext) } }) {
+                Image(systemName: "chevron.down")
+            }
+            .buttonStyle(.borderless)
+            .disabled(findTotal == 0)
+
+            Button(action: { closeFindBar() }) {
+                Image(systemName: "xmark")
+            }
+            .buttonStyle(.borderless)
+        }
+        .frame(maxWidth: .infinity, alignment: .trailing)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(.bar)
+        .onKeyPress(.escape) {
+            closeFindBar()
+            return .handled
+        }
+    }
+
+    func toggleFindBar() {
+        if showFindBar {
+            closeFindBar()
+        } else {
+            showFindBar = true
+            findFieldFocused = true
+        }
+    }
+
+    private func closeFindBar() {
+        showFindBar = false
+        findQuery = ""
+        findTotal = 0
+        findCurrent = 0
+        webProxy.clearFind()
+    }
+
+    private func runFind(_ op: () async -> WebViewProxy.FindResult) async {
+        let result = await op()
+        findTotal = result.total
+        findCurrent = result.current
     }
 
     // MARK: - File URL Resolution
@@ -237,5 +324,16 @@ struct ContentView: View {
         case 1: .body.bold()
         default: .body
         }
+    }
+}
+
+struct ToggleFindBarKey: FocusedValueKey {
+    typealias Value = () -> Void
+}
+
+extension FocusedValues {
+    var toggleFindBar: (() -> Void)? {
+        get { self[ToggleFindBarKey.self] }
+        set { self[ToggleFindBarKey.self] = newValue }
     }
 }

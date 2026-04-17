@@ -70,6 +70,42 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
         }
     }
 
+    // MARK: - Find in Page
+
+    struct FindResult {
+        let total: Int
+        let current: Int
+    }
+
+    func find(_ query: String) async -> FindResult {
+        await evaluateFind("findInPage('\(query.jsEscaped)')")
+    }
+
+    func findNext() async -> FindResult {
+        await evaluateFind("findNext()")
+    }
+
+    func findPrev() async -> FindResult {
+        await evaluateFind("findPrev()")
+    }
+
+    func clearFind() {
+        webView.evaluateJavaScript("clearFind()") { _, _ in }
+    }
+
+    private func evaluateFind(_ js: String) async -> FindResult {
+        do {
+            let result = try await webView.evaluateJavaScript(js)
+            if let dict = result as? [String: Any],
+               let total = dict["total"] as? Int,
+               let current = dict["current"] as? Int
+            {
+                return FindResult(total: total, current: current)
+            }
+        } catch {}
+        return FindResult(total: 0, current: 0)
+    }
+
     func scrollToHeading(_ id: String) {
         webView.evaluateJavaScript("scrollToHeading('\(id.jsEscaped)');") { _, _ in }
     }

@@ -10,6 +10,32 @@ body {
 .task-list-item { list-style-type: none; }
 .task-list-item input[type="checkbox"] { margin: 0 0.2em 0.25em -1.6em; }
 
+.copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 6px;
+    border: 1px solid rgba(31, 35, 40, 0.15);
+    border-radius: 6px;
+    background: #f6f8fa;
+    color: #57606a;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s;
+    line-height: 0;
+}
+pre:hover .copy-btn { opacity: 1; }
+.copy-btn:hover { background: #e8ebef; }
+.copy-btn.copied { color: #1a7f37; border-color: rgba(31, 35, 40, 0.15); }
+
+mark.find-match { background: #fff2a8; color: inherit; border-radius: 2px; padding: 0; }
+mark.find-current { background: #ff9632; color: #fff; }
+
 @media (prefers-color-scheme: dark) {
     body { background: #0d1117; }
+    mark.find-match { background: #6e5c16; color: #e6edf3; }
+    mark.find-current { background: #d2760a; color: #fff; }
+    .copy-btn { color: #8b949e; background: #161b22; border-color: rgba(240, 246, 252, 0.1); }
+    .copy-btn:hover { background: #30363d; }
+    .copy-btn.copied { color: #3fb950; }
 }

@@ -12,6 +12,7 @@ struct MDViewerApp: App {
     @FocusedValue(\.webViewProxy) private var webProxy
     @FocusedValue(\.documentURL) private var documentURL
     @FocusedValue(\.documentText) private var documentText
+    @FocusedValue(\.toggleFindBar) private var toggleFindBar
     @State private var globalSettings = GlobalSettings()
 
     private var canExport: Bool {
@@ -55,6 +56,12 @@ struct MDViewerApp: App {
         .defaultSize(width: Self.defaultWindowSize.width, height: Self.defaultWindowSize.height)
         .commands {
             CommandGroup(replacing: .appSettings) {
+                Button("Check for Updates...") {
+                    UpdateChecker.check()
+                }
+
+                Divider()
+
                 Button("Settings...") {
                     globalSettings.showSettings.toggle()
                 }
@@ -98,6 +105,12 @@ struct MDViewerApp: App {
                 }
                 .keyboardShortcut("p")
                 .disabled(!canExport)
+            }
+            CommandGroup(after: .textEditing) {
+                Button("Find…") {
+                    toggleFindBar?()
+                }
+                .keyboardShortcut("f")
             }
             CommandGroup(after: .sidebar) {
                 Button("Toggle Sidebar") {

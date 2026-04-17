@@ -44,6 +44,7 @@
                     }
                 }
 
+                addCopyButtons();
                 extractHeadings();
             } catch (e) {
                 document.getElementById('content').innerHTML =
@@ -110,6 +111,106 @@
             }
             if (minStart === Infinity) return null;
             return { startLine: minStart, endLine: maxEnd };
+        }
+
+        var copySvg = '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25z"/></svg>';
+        var checkSvg = '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg>';
+
+        function addCopyButtons() {
+            document.querySelectorAll('pre > code').forEach(function(code) {
+                var pre = code.parentElement;
+                if (pre.querySelector('.copy-btn')) return;
+                pre.style.position = 'relative';
+                var btn = document.createElement('button');
+                btn.className = 'copy-btn';
+                btn.innerHTML = copySvg;
+                btn.addEventListener('click', function() {
+                    navigator.clipboard.writeText(code.textContent).then(function() {
+                        btn.innerHTML = checkSvg;
+                        btn.classList.add('copied');
+                        setTimeout(function() {
+                            btn.innerHTML = copySvg;
+                            btn.classList.remove('copied');
+                        }, 2000);
+                    });
+                });
+                pre.appendChild(btn);
+            });
+        }
+
+        // ─── Find in page ───
+        var _findMarks = [];
+        var _findIndex = -1;
+
+        function findInPage(query) {
+            clearFind();
+            if (!query) return { total: 0, current: 0 };
+            var content = document.getElementById('content');
+            var skipTags = {SCRIPT:1, STYLE:1, SVG:1, NOSCRIPT:1, MARK:1};
+            var walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT, {
+                acceptNode: function(node) {
+                    var p = node.parentNode;
+                    while (p && p !== content) {
+                        var tag = (p.tagName || '').toUpperCase();
+                        if (skipTags[tag]) return NodeFilter.FILTER_REJECT;
+                        p = p.parentNode;
+                    }
+                    return NodeFilter.FILTER_ACCEPT;
+                }
+            });
+            var textNodes = [];
+            while (walker.nextNode()) textNodes.push(walker.currentNode);
+            var lowerQuery = query.toLowerCase();
+            textNodes.forEach(function(node) {
+                var text = node.textContent;
+                var lower = text.toLowerCase();
+                var idx = 0;
+                while ((idx = lower.indexOf(lowerQuery, idx)) !== -1) {
+                    var range = document.createRange();
+                    range.setStart(node, idx);
+                    range.setEnd(node, idx + query.length);
+                    var mark = document.createElement('mark');
+                    mark.className = 'find-match';
+                    try {
+                        range.surroundContents(mark);
+                        _findMarks.push(mark);
+                    } catch(e) { /* skip cross-element matches */ }
+                    // After surroundContents, the text node is split — advance walker
+                    node = mark.nextSibling;
+                    if (!node) break;
+                    lower = node.textContent.toLowerCase();
+                    idx = 0;
+                }
+            });
+            if (_findMarks.length > 0) {
+                _findIndex = 0;
+                _findMarks[0].classList.add('find-current');
+                _findMarks[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            return { total: _findMarks.length, current: _findMarks.length > 0 ? 1 : 0 };
+        }
+
+        function gotoMatch(delta) {
+            var n = _findMarks.length;
+            if (n === 0) return { total: 0, current: 0 };
+            _findMarks[_findIndex].classList.remove('find-current');
+            _findIndex = (_findIndex + delta + n) % n;
+            _findMarks[_findIndex].classList.add('find-current');
+            _findMarks[_findIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return { total: n, current: _findIndex + 1 };
+        }
+
+        function findNext() { return gotoMatch(1); }
+        function findPrev() { return gotoMatch(-1); }
+
+        function clearFind() {
+            _findMarks.forEach(function(mark) {
+                var parent = mark.parentNode;
+                parent.replaceChild(document.createTextNode(mark.textContent), mark);
+                parent.normalize();
+            });
+            _findMarks = [];
+            _findIndex = -1;
         }
 
         // Intercept link clicks and route through Swift
