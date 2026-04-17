@@ -100,7 +100,12 @@ make install
 
 Both methods install to `/Applications` and enable the Quick Look extension.
 
-> On first launch, macOS may block the app. Go to **System Settings → Privacy & Security → Open Anyway** to allow it.
+### Troubleshooting first launch
+
+MDViewer is currently distributed with ad-hoc signing — it is not enrolled in the Apple Developer Program and therefore not notarized, so Gatekeeper blocks it on first launch. Since macOS Sequoia the right-click "Open" bypass no longer works, so pick one of the following:
+
+- **System Settings (recommended)**: open **System Settings → Privacy & Security**, scroll to the Security section, click **Open Anyway**, then confirm with your password.
+- **Terminal one-liner**: `xattr -dr com.apple.quarantine /Applications/MDViewer.app`
 
 ### Upgrade
 

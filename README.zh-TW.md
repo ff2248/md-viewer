@@ -100,7 +100,12 @@ make install
 
 兩種方式都會安裝到 `/Applications` 並啟用 Quick Look 擴充功能。
 
-> 首次啟動時，macOS 可能會阻擋此應用程式。請前往**系統設定 → 隱私權與安全性 → 仍要打開**以允許執行。
+### 首次開啟可能遇到的問題
+
+MDViewer 目前以 ad-hoc 簽名發佈（尚未加入 Apple Developer Program，因此未經 Apple 公證），首次啟動會被 macOS Gatekeeper 阻擋。自 macOS Sequoia 起，在 Finder 按右鍵選「打開」也無法再繞過，請擇一處理：
+
+- **系統設定（建議）**：開啟 **系統設定 → 隱私權與安全性**，於下方「安全性」區塊點擊 **「強制打開」**，再輸入密碼確認。
+- **終端機一行指令**：`xattr -dr com.apple.quarantine /Applications/MDViewer.app`
 
 ### 升級
 
