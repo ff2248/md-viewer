@@ -45,6 +45,7 @@
                 }
 
                 addCopyButtons();
+                initTableResize();
                 extractHeadings();
             } catch (e) {
                 document.getElementById('content').innerHTML =
@@ -135,6 +136,84 @@
                     });
                 });
                 pre.appendChild(btn);
+            });
+        }
+
+        // ─── Table column resize (runtime only, not persisted) ───
+        var COL_MIN_W = 24;
+        function pinWidth(th, px) {
+            th.style.width = th.style.minWidth = th.style.maxWidth = px + 'px';
+        }
+        function initTableResize() {
+            document.querySelectorAll('#content table').forEach(function(table) {
+                var headers = table.querySelectorAll('thead tr:first-child th');
+                if (headers.length === 0) return;
+                headers.forEach(function(th) {
+                    var handle = document.createElement('span');
+                    handle.className = 'col-resize-handle';
+                    handle.addEventListener('mousedown', function(e) {
+                        e.preventDefault();
+                        var startX = e.clientX;
+                        var startWidth = th.offsetWidth;
+                        document.body.classList.add('col-resizing');
+                        handle.classList.add('dragging');
+                        function onMove(ev) {
+                            // Max = current viewport width minus body horizontal padding (40px each side).
+                            // Read at drag time, not init, so window resize is always respected.
+                            var colMax = Math.max(COL_MIN_W, window.innerWidth - 80);
+                            var w = Math.min(colMax, Math.max(COL_MIN_W, startWidth + (ev.clientX - startX)));
+                            pinWidth(th, w);
+                        }
+                        function stop() {
+                            document.removeEventListener('mousemove', onMove);
+                            document.removeEventListener('mouseup', stop);
+                            window.removeEventListener('blur', stop);
+                            document.body.classList.remove('col-resizing');
+                            handle.classList.remove('dragging');
+                        }
+                        document.addEventListener('mousemove', onMove);
+                        document.addEventListener('mouseup', stop);
+                        window.addEventListener('blur', stop);
+                    });
+                    // Double-click → auto-fit to single-line max-content (Excel-style).
+                    // Table-layout constraints (display:block, max-width:100%) make
+                    // it unreliable to read offsetWidth after clearing the width.
+                    // Instead, measure each cell's content width directly in an
+                    // offscreen white-space:nowrap element that inherits font metrics.
+                    handle.addEventListener('dblclick', function(e) {
+                        e.preventDefault();
+                        var colIdx = Array.prototype.indexOf.call(th.parentNode.children, th);
+                        var cells = [th];
+                        table.querySelectorAll('tbody > tr').forEach(function(tr) {
+                            if (tr.children[colIdx]) cells.push(tr.children[colIdx]);
+                        });
+                        // Measurer must live inside .markdown-body so that
+                        // descendant CSS rules (e.g. `.markdown-body code`
+                        // monospace font, padding, background) apply to the
+                        // cloned content — otherwise inline code and other
+                        // styled inline elements get under-measured.
+                        var host = table.closest('.markdown-body') || document.body;
+                        var measurer = document.createElement('div');
+                        measurer.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;';
+                        host.appendChild(measurer);
+                        var maxW = 0;
+                        cells.forEach(function(cell) {
+                            var cs = window.getComputedStyle(cell);
+                            measurer.style.fontFamily = cs.fontFamily;
+                            measurer.style.fontSize = cs.fontSize;
+                            measurer.style.fontWeight = cs.fontWeight;
+                            measurer.style.fontStyle = cs.fontStyle;
+                            measurer.innerHTML = cell.innerHTML;
+                            measurer.querySelectorAll('.col-resize-handle').forEach(function(h) { h.remove(); });
+                            var padH = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+                            var w = measurer.offsetWidth + padH;
+                            if (w > maxW) maxW = w;
+                        });
+                        host.removeChild(measurer);
+                        pinWidth(th, Math.ceil(maxW));
+                    });
+                    th.appendChild(handle);
+                });
             });
         }
 

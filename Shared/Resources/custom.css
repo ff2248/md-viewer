@@ -31,6 +31,35 @@ pre:hover .copy-btn { opacity: 1; }
 mark.find-match { background: #fff2a8; color: inherit; border-radius: 2px; padding: 0; }
 mark.find-current { background: #ff9632; color: #fff; }
 
+.markdown-body th { position: relative; box-sizing: border-box; }
+.markdown-body td { box-sizing: border-box; }
+.col-resize-handle {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 6px;
+    height: 100%;
+    cursor: col-resize;
+    user-select: none;
+    z-index: 1;
+}
+.col-resize-handle::before {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 15%;
+    bottom: 15%;
+    width: 2px;
+    background: transparent;
+    transition: background 0.1s;
+}
+.col-resize-handle:hover::before,
+.col-resize-handle.dragging::before { background: #0969da; }
+body.col-resizing, body.col-resizing * {
+    cursor: col-resize !important;
+    user-select: none !important;
+}
+
 @media (prefers-color-scheme: dark) {
     body { background: #0d1117; }
     mark.find-match { background: #6e5c16; color: #e6edf3; }
@@ -38,4 +67,6 @@ mark.find-current { background: #ff9632; color: #fff; }
     .copy-btn { color: #8b949e; background: #161b22; border-color: rgba(240, 246, 252, 0.1); }
     .copy-btn:hover { background: #30363d; }
     .copy-btn.copied { color: #3fb950; }
+    .col-resize-handle:hover::before,
+    .col-resize-handle.dragging::before { background: #58a6ff; }
 }
