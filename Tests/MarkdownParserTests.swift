@@ -11,10 +11,9 @@ private func options(showFrontMatter: Bool = RenderOptions.defaults.showFrontMat
 
 struct MarkdownParserPreprocessSuite {
     @Test func preservesYAMLFrontMatter() {
-        // preprocess no longer strips front matter; line numbers in the
-        // HTML it feeds must line up with the original source so that
-        // "Copy as Markdown" works over selections that include the
-        // front-matter table.
+        // preprocess preserves front matter so its line numbers match the
+        // original source — required for "Copy as Markdown" to slice
+        // selections that include the front-matter table.
         let input = """
         ---
         title: Hello

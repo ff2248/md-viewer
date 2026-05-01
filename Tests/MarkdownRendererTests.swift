@@ -169,9 +169,9 @@ struct MarkdownRendererSuite {
         #expect(html.contains("data-sourcepos=\"5:1-7:3\"")) // fenced code
     }
 
-    @Test func mathCodeBlockRendersAsMathMLDespiteSourceposAttribute() {
-        // Regression guard: enabling CMARK_OPT_SOURCEPOS adds an attribute
-        // to <pre>, which broke MathRenderer's exact-match regex.
+    @Test func mathCodeBlockRendersWithPreAttributes() {
+        // <pre> in cmark output carries attributes like data-sourcepos;
+        // math code-block matching must accept the block regardless.
         let html = MarkdownRenderer.renderToHTML("```math\nx^2\n```", bundle: testBundle, options: options())
         #expect(html.contains("<math"))
         #expect(!html.contains("class=\"language-math\""))
@@ -185,8 +185,8 @@ struct MarkdownRendererSuite {
     }
 
     @Test func highlightedCodeBlockKeepsSourcepos() {
-        // Same regression: HighlightRenderer used to rewrite <pre> and
-        // drop the attribute; it now carries <pre>'s attributes through.
+        // HighlightRenderer must carry <pre>'s attributes through its
+        // rewrite so data-sourcepos survives into the final HTML.
         let html = MarkdownRenderer.renderToHTML("```swift\nlet x = 1\n```", bundle: testBundle, options: options())
         #expect(html.contains("class=\"hljs language-swift\""))
         #expect(html.contains("data-sourcepos=\"1:1-3:3\""))
@@ -797,9 +797,9 @@ struct FileMenuPrunerSuite {
         appDelegate.applicationWillFinishLaunching(Notification(name: NSApplication.willFinishLaunchingNotification))
     }
 
-    /// End-to-end test: AppDelegate installs the swizzle, then SwiftUI's clobber
-    /// attempt should be intercepted. This catches the regression where
-    /// `applicationWillFinishLaunching` doesn't call `installFileMenuDelegateProtection`.
+    /// End-to-end: `applicationWillFinishLaunching` must wire the swizzle so
+    /// that a subsequent SwiftUI delegate replacement is intercepted and the
+    /// pruner remains installed.
     @Test func appDelegateInstallsSwizzle() {
         runAppDelegateLaunch()
 

@@ -1,8 +1,8 @@
 import Foundation
 @preconcurrency import JavaScriptCore
 
-/// LaTeX → MathML rendering via Temml in JavaScriptCore. Renders two math
-/// constructs as a post-HTML regex pass:
+/// LaTeX → MathML rendering via Temml in JavaScriptCore. Matches two
+/// math constructs in the rendered HTML:
 ///
 /// - ` ```math ` fenced code blocks — cmark-gfm emits these as
 ///   `<pre><code class="language-math">...</code></pre>`, which is

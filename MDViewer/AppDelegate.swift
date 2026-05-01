@@ -67,9 +67,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return nil
         }
 
-        // Attach File menu delegate — this is the ONE hook that fires on menu-tracking
-        // start (after SwiftUI's re-insertion, before display). Re-attach on activation
-        // because SwiftUI may rebuild the submenu.
+        // Attach File menu delegate; re-attach on activation since SwiftUI
+        // may rebuild the submenu.
         attachFileMenuDelegate()
         NotificationCenter.default.addObserver(
             forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
@@ -225,21 +224,19 @@ final class FileMenuPruner: NSObject, NSMenuDelegate, @unchecked Sendable {
 
 // MARK: - NSMenu Delegate Protection
 
-/// SwiftUI's DocumentGroup repeatedly resets the File menu's delegate to its own
-/// `AppKitMainMenuItem`, bypassing any delegate we install. We swizzle `setDelegate:`
-/// on NSMenu so that once our `FileMenuPruner` is installed on a menu titled "File",
-/// any attempt to replace it is intercepted: we keep our pruner as the delegate but
-/// record the incoming delegate as `previousDelegate` for forwarding.
+/// SwiftUI's DocumentGroup resets the File menu's delegate to its own
+/// `AppKitMainMenuItem` on every menu update. We swizzle `setDelegate:`
+/// on NSMenu so that once our `FileMenuPruner` is installed on a menu
+/// titled "File", any attempt to replace it is intercepted: we keep
+/// our pruner as the delegate and record the incoming delegate as
+/// `previousDelegate` for forwarding.
 ///
-/// Why swizzle? Apple's public APIs cannot remove specific items from the File menu
-/// of a DocumentGroup app:
-///   - `CommandGroup(replacing: .saveItem) { }` leaves a phantom "NSMenuItem" (FB16145855)
-///   - Setting `submenu.delegate = ourPruner` directly is immediately overwritten by
-///     SwiftUI's `AppKitMainMenuItem` on every menu update tick
-///   - `applicationWillUpdate` + `isHidden = true` is a racy polling approach that
-///     loses to SwiftUI's faster re-insertion
-/// Swizzling `setDelegate:` is the only reliable way to keep our delegate installed.
-/// Precedent: RxSwift swizzles `UITableView.setDelegate:` to solve the same problem
+/// SwiftUI's public alternative — `CommandGroup(replacing: .saveItem) { }`
+/// — leaves a phantom "NSMenuItem" in the menu (FB16145855), so we can't
+/// route hiding through Commands.
+///
+/// Precedent: RxSwift swizzles `UITableView.setDelegate:` for the same
+/// SDK-clobbering problem
 /// (https://github.com/ReactiveX/RxSwift/issues/1755).
 extension NSMenu {
     static func installFileMenuDelegateProtection() {

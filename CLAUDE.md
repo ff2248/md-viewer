@@ -59,14 +59,14 @@ Rendering pipeline: `MarkdownParser` (cmark-gfm + `MathExtractor` AST walk for i
 ## Do NOT
 
 - Use private WebKit APIs (`setValue:forKey:` on WKWebView/preferences) — use public alternatives (`underPageBackgroundColor`, `loadFileURL`)
-- Use `NSWindow.willCloseNotification` observer for app lifecycle — causes issues with input method switching
-- Use SwiftUI `Settings { }` scene — creates separate window with lifecycle problems
+- Use `NSWindow.willCloseNotification` for app lifecycle — it interferes with input method switching. Use `NSApplicationDelegate` hooks (`applicationShouldTerminate`, etc.) instead
+- Use SwiftUI `Settings { }` scene — use `.inspector` for inline, document-scoped settings instead of a separate window
 - Use `.navigationTitle` with `.listStyle(.sidebar)` — causes ghost "Contents" text on resize
 - Put `@AppStorage` key strings inline — use `SettingsKey` constants
-- Try to intercept drag & drop on WKWebView content area — internal private subviews consume drag events, `unregisterDraggedTypes()` and `registerForDraggedTypes` override do not work, glass pane overlay with `hitTest` nil also fails
+- Try to intercept drag & drop on WKWebView's content area — WebKit's internal subviews receive drag events first and the public API offers no override hook. Route drops through the sidebar instead (see Known Issues)
 - Use `NSDocumentController.shared.openDocument(display:)` to open files from within the app — bypasses macOS automatic tab merging; use `NSWorkspace.shared.open` (Apple Event path) instead
 - Use empty `CommandGroup(replacing: .newItem/.saveItem) { }` — causes ghost "NSMenuItem" text in menu (SwiftUI bug FB16145855)
-- Rely on `applicationWillUpdate` or `didBecomeActive` to modify File menu items — SwiftUI's `AppKitMainMenuItem` repeatedly resets the delegate. Must swizzle `NSMenu.setDelegate:` to prevent SwiftUI from clobbering a custom `FileMenuPruner` delegate, then install via `applicationWillFinishLaunching` (see `MDViewerApp.swift`)
+- Rely on `applicationWillUpdate` or `didBecomeActive` to modify File menu items — SwiftUI's `AppKitMainMenuItem` resets the menu delegate on every update. Swizzle `NSMenu.setDelegate:` and install via `applicationWillFinishLaunching` (see `AppDelegate.swift`)
 - Add features beyond what's asked (YAGNI)
 
 ## Known Issues / TODO

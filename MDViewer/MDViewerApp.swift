@@ -75,8 +75,6 @@ struct MDViewerApp: App {
                 .keyboardShortcut("c", modifiers: [.command, .shift])
                 .disabled(webProxy == nil)
             }
-            // Note: Do NOT use empty CommandGroup(replacing: .newItem/.saveItem) —
-            // causes ghost "NSMenuItem" in menu. Cleanup handled in AppDelegate instead.
             CommandGroup(after: .importExport) {
                 Button("Open in External Editor") {
                     if let url = documentURL {
