@@ -18,7 +18,10 @@ enum MarkdownRenderer {
 
     /// Renders Markdown to HTML via cmark-gfm, highlight.js, and Temml.
     static func renderToHTML(_ markdown: String, bundle: Bundle, options: RenderOptions = .defaults) -> String {
-        var html = MarkdownParser.toHTML(markdown, options: options)
+        let mathRender: MathRenderClosure = { latex, displayMode in
+            MathRenderer.renderLatex(latex, displayMode: displayMode, bundle: bundle)
+        }
+        var html = MarkdownParser.toHTML(markdown, options: options, mathRender: mathRender)
         html = HighlightRenderer.highlight(in: html, bundle: bundle)
         html = MathRenderer.renderMath(in: html, bundle: bundle)
         html = stripEventHandlers(in: html)

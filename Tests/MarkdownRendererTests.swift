@@ -541,18 +541,108 @@ struct MathRendererSuite {
         #expect(result.contains("<math"))
         #expect(!result.contains("$$"))
     }
+}
 
+// MARK: - Math through full pipeline
+
+/// Drives inline math detection through the full markdown→HTML pipeline.
+/// Each test asserts a property of the rendered output for one source shape.
+struct MathInlinePipelineSuite {
     @Test func rendersInlineMath() {
-        let html = "<p>$x^2$</p>"
-        let result = MathRenderer.renderMath(in: html, bundle: testBundle)
-        #expect(result.contains("<math"))
+        let html = MarkdownRenderer.renderToHTML("$E = mc^2$", bundle: testBundle, options: options())
+        #expect(html.contains("<math"))
+        #expect(!html.contains("$E = mc^2$"))
     }
 
-    @Test func doesNotRenderMathInsideCode() {
-        let html = "<code>$x$</code>"
-        let result = MathRenderer.renderMath(in: html, bundle: testBundle)
-        #expect(!result.contains("<math"))
-        #expect(result.contains("$x$"))
+    @Test func currencyInTableCellStaysPlain() {
+        let md = "| Item | Price |\n|---|---|\n| Apple | $5.00 → $1.50 |"
+        let html = MarkdownRenderer.renderToHTML(md, bundle: testBundle, options: options())
+        #expect(!html.contains("<math"))
+        #expect(html.contains("$5.00"))
+        #expect(html.contains("$1.50"))
+    }
+
+    @Test func currencyAcrossTableCellsStaysPlain() {
+        let md = """
+        | A | B |
+        |---|---|
+        | x | $0.07/月 |
+        | y | $1.72 |
+        """
+        let html = MarkdownRenderer.renderToHTML(md, bundle: testBundle, options: options())
+        #expect(!html.contains("<math"))
+        #expect(html.contains("$0.07/月"))
+        #expect(html.contains("$1.72"))
+    }
+
+    @Test func mathInLinkTargetDoesNotCorruptHref() {
+        // `$...$` inside a link destination is part of the URL, not text
+        // content, and must not render as math.
+        let html = MarkdownRenderer.renderToHTML("[click]($x$)", bundle: testBundle, options: options())
+        #expect(!html.contains("<math"))
+        #expect(html.contains("href"))
+        #expect(html.contains("click"))
+    }
+
+    @Test func mathWithLessThanOperator() {
+        // `<` inside inline math reaches Temml as a literal relation
+        // operator and emits structural MathML, not `&lt;` text.
+        let html = MarkdownRenderer.renderToHTML("$a < b$", bundle: testBundle, options: options())
+        #expect(html.contains("<math"))
+        #expect(!html.contains("$a"))
+    }
+
+    @Test func adjacentInlineMathRendersBoth() {
+        // `$x$$y$` is two separate inline spans, not display math.
+        let html = MarkdownRenderer.renderToHTML("$x$$y$", bundle: testBundle, options: options())
+        let mathOpenCount = html.components(separatedBy: "<math").count - 1
+        #expect(mathOpenCount >= 2)
+    }
+
+    /// AST walk descends into nested block/inline containers — the math
+    /// span renders, and the surrounding wrapper tag is intact.
+    @Test(arguments: [
+        ("> $x = 1$", "<blockquote"),
+        ("- $x = 1$", "<li"),
+        ("| h | v |\n|---|---|\n| $x^2$ | 4 |", "<td"),
+        ("*emphasis $x$ more*", "<em"),
+    ])
+    func mathRendersInsideContainer(markdown: String, wrapperTag: String) {
+        let html = MarkdownRenderer.renderToHTML(markdown, bundle: testBundle, options: options())
+        #expect(html.contains(wrapperTag), "missing \(wrapperTag) for input \(markdown.debugDescription)")
+        #expect(html.contains("<math"), "missing <math> for input \(markdown.debugDescription)")
+    }
+
+    /// Currency-shaped prose (`$5`, `~$14.68`, `$5–$10`) is rejected by
+    /// Pandoc's `firstChar.isNumber` guard. These are different surface
+    /// forms of the same code path.
+    @Test(arguments: [
+        ("Total: ~$14.68 yearly", "$14.68"),
+        ("Prices: $5–$10 range", "$5"),
+        ("Single: $9.42 alone", "$9.42"),
+    ])
+    func currencyShapedProseStaysPlain(markdown: String, expectedSubstring: String) {
+        let html = MarkdownRenderer.renderToHTML(markdown, bundle: testBundle, options: options())
+        #expect(!html.contains("<math"), "spurious math for \(markdown.debugDescription)")
+        #expect(html.contains(expectedSubstring), "missing \(expectedSubstring) for \(markdown.debugDescription)")
+    }
+
+    @Test func mathInsideCodeSpanStaysPlain() {
+        let html = MarkdownRenderer.renderToHTML("`literal $x$ code`", bundle: testBundle, options: options())
+        #expect(!html.contains("<math"))
+        #expect(html.contains("$x$"))
+    }
+
+    @Test func mathInsideFencedCodeStaysPlain() {
+        let html = MarkdownRenderer.renderToHTML("```\n$x = 1$\n```", bundle: testBundle, options: options())
+        #expect(!html.contains("<math"))
+        #expect(html.contains("$x = 1$"))
+    }
+
+    @Test func backslashDollarRendersLiteral() {
+        let html = MarkdownRenderer.renderToHTML("Cost is \\$5 today.", bundle: testBundle, options: options())
+        #expect(!html.contains("<math"))
+        #expect(html.contains("$5"))
     }
 }
 

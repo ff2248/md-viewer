@@ -68,6 +68,30 @@ $$\int_{0}^{\infty} e^{-x^2} dx = \frac{\sqrt{\pi}}{2}$$
 \sum_{k=0}^{n} \binom{n}{k} = 2^n
 ```
 
+### `$` edge cases
+
+Currency in tables:
+
+| Plan | Monthly | Yearly |
+|---|---|---|
+| A | $26.97 → $1.62 | ~$5,637 |
+| B | $9.42 (already lowest) | ~$2,020 |
+| C | $0.07/mo | $0 |
+
+In prose: $5–$10, `~$14.68 yearly`, \$5 today.
+
+Link URL with `$` template: [docs](https://example.com/api?id=$x$)
+
+Relation operators: $a < b$, $|x| > 0$
+
+Adjacent inline math: $x$$y$
+
+Inline code: `$x = 1$`
+
+```
+$E = mc^2$
+```
+
 ## Mermaid Diagrams
 
 ```mermaid

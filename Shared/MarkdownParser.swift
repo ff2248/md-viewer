@@ -15,13 +15,13 @@ enum MarkdownParser {
     /// regardless of whether the source had YAML front matter. This keeps
     /// "Copy as Markdown" working for selections that cover the synthetic
     /// front-matter table, the body, or both.
-    static func toHTML(_ markdown: String, options: RenderOptions = .defaults) -> String {
+    static func toHTML(_ markdown: String, options: RenderOptions = .defaults, mathRender: MathRenderClosure? = nil) -> String {
         // Emoji first (doesn't move line boundaries); then front-matter strip
         // (which does), so we capture the original-space offset before cmark.
         var text = replaceEmojiShortcodes(markdown)
         let meta = extractFrontMatterWithMeta(&text)
         let offset = meta.map { $0.firstBodyLine - 1 } ?? 0
-        var html = cmarkToHTML(text, hardBreaks: options.hardBreaks)
+        var html = cmarkToHTML(text, hardBreaks: options.hardBreaks, mathRender: mathRender)
         if offset > 0 {
             html = offsetSourcepos(in: html, by: offset)
         }
@@ -128,7 +128,7 @@ enum MarkdownParser {
 
     // MARK: - cmark-gfm
 
-    private static func cmarkToHTML(_ text: String, hardBreaks: Bool) -> String {
+    private static func cmarkToHTML(_ text: String, hardBreaks: Bool, mathRender: MathRenderClosure? = nil) -> String {
         cmark_gfm_core_extensions_ensure_registered()
 
         var options: Int32 = CMARK_OPT_FOOTNOTES | CMARK_OPT_UNSAFE | CMARK_OPT_SOURCEPOS
@@ -146,6 +146,10 @@ enum MarkdownParser {
         cmark_parser_feed(parser, text, text.utf8.count)
         guard let doc = cmark_parser_finish(parser) else { return "" }
         defer { cmark_node_free(doc) }
+
+        if let mathRender {
+            MathExtractor.extract(in: doc, render: mathRender)
+        }
 
         let extensions = cmark_parser_get_syntax_extensions(parser)
         guard let cString = cmark_render_html(doc, options, extensions) else { return "" }
