@@ -74,12 +74,20 @@ class GlobalSettings {
         // cross-session uninstalls; this catches the rare in-session case
         // where the user removes the editor between launching MDViewer
         // and pressing ⇧⌘E.
-        if !FileManager.default.fileExists(atPath: editorPath) {
+        if !isLaunchableApp(atPath: editorPath) {
             editorPath = detectDefaultExternalEditor()
             UserDefaults.standard.set(editorPath, forKey: SettingsKey.externalEditor)
         }
         let editorURL = URL(filePath: editorPath)
         NSWorkspace.shared.open([url], withApplicationAt: editorURL, configuration: NSWorkspace.OpenConfiguration())
+    }
+
+    /// True iff the path points to a real macOS application bundle that
+    /// can be handed to `NSWorkspace.open`. Stricter than `fileExists`,
+    /// which returns true for empty `Foo.app` folders, regular files,
+    /// and bundles missing their `Info.plist`.
+    nonisolated static func isLaunchableApp(atPath path: String) -> Bool {
+        Bundle(path: path)?.bundleIdentifier != nil
     }
 
     /// Editor entry shown in the Settings picker — the bundle ID is
@@ -93,11 +101,16 @@ class GlobalSettings {
     /// Recommended editors that are actually installed on this machine,
     /// in the order declared by `RenderOptions.recommendedExternalEditors`.
     /// The Settings picker reads this; first-launch default uses the
-    /// first entry.
+    /// first entry. For each entry, the first installed bundle ID wins
+    /// (so VS Code beats VS Code Insiders if both are present).
     static func installedRecommendedEditors() -> [RecommendedEditor] {
         RenderOptions.recommendedExternalEditors.compactMap { entry in
-            guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: entry.bundleID) else { return nil }
-            return RecommendedEditor(path: url.path, displayName: entry.displayName)
+            for bundleID in entry.bundleIDs {
+                if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
+                    return RecommendedEditor(path: url.path, displayName: entry.displayName)
+                }
+            }
+            return nil
         }
     }
 

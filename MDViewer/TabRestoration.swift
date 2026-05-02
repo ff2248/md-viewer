@@ -6,11 +6,17 @@ enum TabRestoration {
         defaults.set(paths, forKey: SettingsKey.restoreTabs)
     }
 
-    /// Returns the saved paths, filtered down to those that still exist on disk.
-    /// `fileExists` is injectable for tests; production callers can pass `FileManager.default.fileExists(atPath:)`.
+    /// Returns the saved paths, filtered down to regular files that
+    /// still exist on disk. Directories at a recorded path (e.g. file
+    /// replaced by a folder of the same name) are dropped so the
+    /// restore loop doesn't hand a folder to the markdown opener.
+    /// `fileExists` is injectable for tests.
     static func restoredPaths(
         defaults: UserDefaults = .standard,
-        fileExists: (String) -> Bool = { FileManager.default.fileExists(atPath: $0) }
+        fileExists: (String) -> Bool = { path in
+            var isDir: ObjCBool = false
+            return FileManager.default.fileExists(atPath: path, isDirectory: &isDir) && !isDir.boolValue
+        }
     ) -> [String] {
         let saved = defaults.stringArray(forKey: SettingsKey.restoreTabs) ?? []
         return saved.filter(fileExists)

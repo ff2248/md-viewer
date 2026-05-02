@@ -1,8 +1,11 @@
 import AppKit
 import ObjectiveC
+import os
 
 @MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
+    private static let logger = Logger(subsystem: "io.github.ff2248.MDViewer", category: "tabRestore")
+
     private static let tabbingID = NSWindow.TabbingIdentifier("io.github.ff2248.MDViewer.document")
     private let fileMenuPruner = FileMenuPruner()
     private var windowObserver: Any?
@@ -31,12 +34,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         UserDefaults.standard.register(defaults: [
             SettingsKey.externalEditor: GlobalSettings.detectDefaultExternalEditor(),
         ])
-        // Self-heal: if the chosen editor was uninstalled or moved away,
-        // overwrite the stored path with a fresh auto-detection so
-        // ⇧⌘E doesn't silently fail and Settings doesn't display a
-        // ghost editor that no longer exists.
+        // Self-heal: if the chosen editor was uninstalled, moved away,
+        // or replaced by a corrupted bundle, overwrite the stored path
+        // with a fresh auto-detection so ⇧⌘E doesn't silently fail and
+        // Settings doesn't display a ghost editor that can't be launched.
         if let stored = UserDefaults.standard.string(forKey: SettingsKey.externalEditor),
-           !FileManager.default.fileExists(atPath: stored)
+           !GlobalSettings.isLaunchableApp(atPath: stored)
         {
             UserDefaults.standard.set(GlobalSettings.detectDefaultExternalEditor(), forKey: SettingsKey.externalEditor)
         }
@@ -125,14 +128,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             try? await Task.sleep(for: .milliseconds(400))
             guard UserDefaults.standard.bool(forKey: SettingsKey.restoreTabsEnabled) else { return }
             for path in TabRestoration.restoredPaths() {
-                // `completionHandler: nil` selects the closure-based overload —
-                // without it, Swift prefers the `async` variant in this context.
                 NSWorkspace.shared.open(
                     [URL(filePath: path)],
                     withApplicationAt: Bundle.main.bundleURL,
-                    configuration: NSWorkspace.OpenConfiguration(),
-                    completionHandler: nil
-                )
+                    configuration: NSWorkspace.OpenConfiguration()
+                ) { _, error in
+                    if let error {
+                        // Restore is best-effort: a file that disappeared,
+                        // moved to a privileged folder, or hit a permission
+                        // change between sessions just gets skipped. Surface
+                        // via Console so users can debug, but don't pop a
+                        // modal alert per failed tab.
+                        Self.logger.warning("Failed to restore tab \(path, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                    }
+                }
             }
         }
     }

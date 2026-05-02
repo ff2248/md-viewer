@@ -60,6 +60,29 @@ struct GlobalSettingsSuite {
         #expect(opts.codeFontSize == 15)
     }
 
+    // MARK: - isLaunchableApp
+
+    /// Self-heal in AppDelegate and the use-time fallback in
+    /// `openInExternalEditor` rely on this being stricter than
+    /// `FileManager.fileExists`. A regression that downgrades it would
+    /// re-introduce silent ⇧⌘E failures.
+    @Test func isLaunchableAppRejectsDirectories() {
+        #expect(!GlobalSettings.isLaunchableApp(atPath: "/tmp"))
+    }
+
+    @Test func isLaunchableAppRejectsRegularFiles() {
+        #expect(!GlobalSettings.isLaunchableApp(atPath: "/etc/hosts"))
+    }
+
+    @Test func isLaunchableAppAcceptsTextEdit() {
+        // TextEdit ships with macOS, so it's a stable acceptance fixture.
+        #expect(GlobalSettings.isLaunchableApp(atPath: "/System/Applications/TextEdit.app"))
+    }
+
+    @Test func isLaunchableAppRejectsNonexistent() {
+        #expect(!GlobalSettings.isLaunchableApp(atPath: "/Applications/DefinitelyNotInstalled.app"))
+    }
+
     // MARK: - applyAppearance
 
     @Test @MainActor func applyAppearanceLight() {

@@ -105,14 +105,18 @@ struct HistoryView: View {
             alert.runModal()
             return
         }
-        // `completionHandler: nil` selects the closure-based overload —
-        // without it, Swift may prefer the `async` variant in this context.
         NSWorkspace.shared.open(
             [URL(filePath: path)],
             withApplicationAt: Bundle.main.bundleURL,
-            configuration: NSWorkspace.OpenConfiguration(),
-            completionHandler: nil
-        )
+            configuration: NSWorkspace.OpenConfiguration()
+        ) { _, error in
+            // User-initiated open — surface a launch error (permission,
+            // sandbox, corrupted file) instead of failing silently. Marshal
+            // to main actor since the completion runs on a background queue.
+            if let error {
+                Task { @MainActor in NSAlert(error: error).runModal() }
+            }
+        }
     }
 
     private func revealInFinder(_ path: String) {
