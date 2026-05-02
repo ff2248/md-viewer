@@ -402,7 +402,8 @@ private class WeakScriptMessageHandler: NSObject, WKScriptMessageHandler {
 /// Prevents click-through on inactive windows.
 /// WKWebView defaults acceptsFirstMouse to true, causing clicks that
 /// activate the window to also trigger web content interactions.
-/// Also injects a "Copy as Markdown" item into the right-click context menu.
+/// Also customises the right-click context menu — injects "Copy as
+/// Markdown" and hides non-functional / disabled items.
 private final class NonClickThroughWebView: WKWebView {
     weak var copyAsMarkdownTarget: WebViewProxy?
 
@@ -412,8 +413,58 @@ private final class NonClickThroughWebView: WKWebView {
 
     @MainActor
     override func willOpenMenu(_ menu: NSMenu, with _: NSEvent) {
+        pruneContextMenu(menu)
+        insertCopyAsMarkdown(menu)
+    }
+
+    /// Hide WebKit context-menu items that have no chance of working
+    /// in this app (no `WKUIDelegate` to fulfil them) and any item
+    /// AppKit has already reported as disabled — both are clutter for
+    /// the user.
+    @MainActor
+    private func pruneContextMenu(_ menu: NSMenu) {
+        // Identifier substrings are matched instead of exact names
+        // because WebKit varies the prefix between releases
+        // (`WKMenuItemIdentifier…` vs `_WKMenuItemIdentifier…`).
+        let unwantedIdentifierSubstrings = ["OpenImageInNewWindow", "DownloadImage"]
+        for item in menu.items {
+            let id = item.identifier?.rawValue ?? ""
+            if unwantedIdentifierSubstrings.contains(where: id.contains) {
+                item.isHidden = true
+                continue
+            }
+            if !item.isSeparatorItem, !item.isEnabled {
+                item.isHidden = true
+            }
+        }
+        collapseAdjacentSeparators(menu)
+    }
+
+    /// After hiding items, runs of separators or a leading/trailing
+    /// separator can remain visible — fold them so the menu doesn't
+    /// show empty bands.
+    @MainActor
+    private func collapseAdjacentSeparators(_ menu: NSMenu) {
+        var hasContentSinceLastSeparator = false
+        for item in menu.items where !item.isHidden {
+            if item.isSeparatorItem {
+                if hasContentSinceLastSeparator {
+                    hasContentSinceLastSeparator = false
+                } else {
+                    item.isHidden = true
+                }
+            } else {
+                hasContentSinceLastSeparator = true
+            }
+        }
+        if let last = menu.items.last(where: { !$0.isHidden }), last.isSeparatorItem {
+            last.isHidden = true
+        }
+    }
+
+    @MainActor
+    private func insertCopyAsMarkdown(_ menu: NSMenu) {
         guard copyAsMarkdownTarget != nil else { return }
-        // Avoid duplicates if AppKit reopens the same menu
         if menu.items.contains(where: { $0.action == #selector(copyAsMarkdownAction) && $0.target === self }) {
             return
         }
@@ -421,10 +472,6 @@ private final class NonClickThroughWebView: WKWebView {
                               action: #selector(copyAsMarkdownAction),
                               keyEquivalent: "")
         item.target = self
-        // WKMenuItemIdentifierCopy is a private WebKit identifier (not in
-        // public headers). If Apple ever renames it our item just falls
-        // through to `addItem` and appears at the bottom — still
-        // functional, just less discoverable.
         if let copyIndex = menu.items.firstIndex(where: { $0.identifier?.rawValue == "WKMenuItemIdentifierCopy" }) {
             menu.insertItem(item, at: copyIndex + 1)
         } else {
