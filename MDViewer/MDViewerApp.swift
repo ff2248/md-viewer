@@ -14,6 +14,7 @@ struct MDViewerApp: App {
     @FocusedValue(\.documentText) private var documentText
     @FocusedValue(\.toggleFindBar) private var toggleFindBar
     @State private var globalSettings = GlobalSettings()
+    @State private var historyStore = HistoryStore()
 
     private var canExport: Bool {
         webProxy != nil && documentText?.isEmpty == false
@@ -31,6 +32,7 @@ struct MDViewerApp: App {
         DocumentGroup(viewing: MarkdownDocument.self) { file in
             ContentView(document: file.$document, globalSettings: globalSettings)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .environment(historyStore)
                 .toolbar {
                     ToolbarItem(placement: .primaryAction) {
                         Button {
@@ -105,6 +107,10 @@ struct MDViewerApp: App {
                 }
                 .keyboardShortcut("p")
                 .disabled(!canExport)
+
+                Divider()
+
+                OpenHistoryCommand()
             }
             CommandGroup(after: .textEditing) {
                 Button("Find…") {
@@ -129,6 +135,11 @@ struct MDViewerApp: App {
                 Button("Actual Size") { globalSettings.resetZoom() }
                     .keyboardShortcut("0", modifiers: .command)
             }
+        }
+
+        Window("History", id: WindowID.history) {
+            HistoryView()
+                .environment(historyStore)
         }
     }
 }
@@ -164,6 +175,7 @@ struct SettingsView: View {
     @AppStorage(SettingsKey.externalEditor) private var externalEditor = RenderOptions.defaultExternalEditor
     @AppStorage(SettingsKey.bodyFontSize) private var bodyFontSize = RenderOptions.defaults.bodyFontSize
     @AppStorage(SettingsKey.codeFontSize) private var codeFontSize = RenderOptions.defaults.codeFontSize
+    @AppStorage(SettingsKey.restoreTabsEnabled) private var restoreTabsEnabled = true
 
     var body: some View {
         Form {
@@ -175,6 +187,7 @@ struct SettingsView: View {
 
             Toggle("Single newline as line break", isOn: $hardBreaks)
             Toggle("Show YAML front matter", isOn: $showFrontMatter)
+            Toggle("Restore tabs on launch", isOn: $restoreTabsEnabled)
 
             LabeledContent("External Editor") {
                 HStack {
@@ -238,6 +251,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// Install custom NSDocumentController BEFORE AppKit creates its own.
     /// First instance wins — must be in willFinish, not didFinish.
     func applicationWillFinishLaunching(_: Notification) {
+        UserDefaults.registerMDViewerDefaults()
         _ = ReadOnlyDocumentController()
         NSMenu.installFileMenuDelegateProtection()
     }
@@ -302,6 +316,37 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.attachFileMenuDelegate() }
         }
+
+        // Defer restore so SwiftUI's DocumentGroup can finish processing any
+        // launch-time file argument (e.g. user double-clicked a .md in Finder)
+        // first; otherwise the restore loop can race with that document's
+        // setup. 400ms is empirical.
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(400))
+            guard UserDefaults.standard.bool(forKey: SettingsKey.restoreTabsEnabled) else { return }
+            for path in TabRestoration.restoredPaths() {
+                // `completionHandler: nil` selects the closure-based overload —
+                // without it, Swift prefers the `async` variant in this context.
+                NSWorkspace.shared.open(
+                    [URL(filePath: path)],
+                    withApplicationAt: Bundle.main.bundleURL,
+                    configuration: NSWorkspace.OpenConfiguration(),
+                    completionHandler: nil
+                )
+            }
+        }
+    }
+
+    /// Snapshot open document paths just before termination. We use
+    /// `applicationShouldTerminate` rather than `applicationWillTerminate`
+    /// because the latter fires after `closeAllDocuments`, by which point
+    /// `NSDocumentController.shared.documents` may already be empty.
+    /// `.terminateNow` is safe here because our documents are read-only
+    /// (`ReadOnlyDocumentController`) so they never carry unsaved changes.
+    func applicationShouldTerminate(_: NSApplication) -> NSApplication.TerminateReply {
+        let paths = NSDocumentController.shared.documents.compactMap(\.fileURL?.path)
+        TabRestoration.record(paths: paths)
+        return .terminateNow
     }
 
     private func attachFileMenuDelegate() {
@@ -319,6 +364,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         for window in NSApp.windows {
             guard window.isVisible, window.styleMask.contains(.titled),
                   !(window is NSPanel) else { continue }
+            if window.identifier?.rawValue == WindowID.history {
+                window.tabbingMode = .disallowed
+                continue
+            }
             window.tabbingMode = .preferred
             window.tabbingIdentifier = tabbingID
         }

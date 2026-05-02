@@ -19,6 +19,7 @@ struct ContentView: View {
     @FocusState private var findFieldFocused: Bool
     @StateObject private var webProxy = WebViewProxy()
     @StateObject private var fileWatcher = FileWatcher()
+    @Environment(HistoryStore.self) private var historyStore
 
     /// Text to display — live content from FileWatcher, or the original from the document.
     private var currentText: String {
@@ -196,6 +197,7 @@ struct ContentView: View {
               let url = doc.fileURL else { return }
         fileURL = url
         webProxy.fileURL = url
+        historyStore.recordOpen(url)
         // Watch for external edits and auto-reload.
         // Update liveText (a local @State) instead of document.text so we never
         // dirty the FileDocument binding — prevents NSDocument autosave conflicts.

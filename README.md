@@ -57,6 +57,7 @@ macOS has no built-in way to read Markdown — open a `.md` file in Preview and 
 - **Quick Look** — press Space in Finder to preview any `.md` file, with inline local images
 - **TOC sidebar** — collapsible heading navigation with click-to-scroll
 - **In-page find** — ⌘F opens a find bar with match highlighting and next/previous navigation
+- **History & tab restoration** — ⌘Y opens a searchable history of recently opened files. Optional "Restore tabs on launch" setting reopens the previous session's tabs automatically.
 - **Export** — save as PDF or self-contained HTML (all JS/CSS inlined), or print via system dialog
 - **Copy as Markdown** — right-click or ⇧⌘C copies the original Markdown source of the current selection (block-level granularity); pastes cleanly into GitHub, Slack, or any Markdown editor. Empty selection is a no-op.
 - **Code block copy** — every rendered code block has a one-click copy button in its corner
@@ -78,6 +79,7 @@ macOS has no built-in way to read Markdown — open a `.md` file in Preview and 
 | ⌘F | Find in page |
 | ⌘, | Toggle settings panel |
 | ⇧⌘S | Toggle TOC sidebar |
+| ⌘Y | Show file history |
 | ← / → | Collapse / expand TOC heading |
 | ⌘+ / ⌘− | Zoom in / out |
 | ⌘0 | Actual size |

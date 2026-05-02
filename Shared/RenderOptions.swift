@@ -1,5 +1,10 @@
 import Foundation
 
+/// Centralized SwiftUI Window scene identifiers.
+enum WindowID {
+    static let history = "history"
+}
+
 /// Centralized UserDefaults key names.
 enum SettingsKey {
     static let appearance = "appearance"
@@ -8,6 +13,9 @@ enum SettingsKey {
     static let bodyFontSize = "bodyFontSize"
     static let codeFontSize = "codeFontSize"
     static let externalEditor = "externalEditor"
+    static let restoreTabs = "restoreTabs"
+    static let restoreTabsEnabled = "restoreTabsEnabled"
+    static let history = "history"
 }
 
 /// Shared rendering options used across the app and Quick Look extension.
@@ -38,5 +46,13 @@ struct RenderOptions: Equatable {
             bodyFontSize: { let v = d.double(forKey: SettingsKey.bodyFontSize); return v > 0 ? v : defaults.bodyFontSize }(),
             codeFontSize: { let v = d.double(forKey: SettingsKey.codeFontSize); return v > 0 ? v : defaults.codeFontSize }()
         )
+    }
+}
+
+extension UserDefaults {
+    static func registerMDViewerDefaults() {
+        UserDefaults.standard.register(defaults: [
+            SettingsKey.restoreTabsEnabled: true,
+        ])
     }
 }
