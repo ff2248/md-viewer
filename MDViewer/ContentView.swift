@@ -17,9 +17,22 @@ struct ContentView: View {
     @State private var findTotal = 0
     @State private var findCurrent = 0
     @FocusState private var findFieldFocused: Bool
-    @StateObject private var webProxy = WebViewProxy()
+    @StateObject private var webProxy: WebViewProxy
     @StateObject private var fileWatcher = FileWatcher()
     @Environment(HistoryStore.self) private var historyStore
+
+    init(document: Binding<MarkdownDocument>, globalSettings: GlobalSettings) {
+        _document = document
+        self.globalSettings = globalSettings
+        // The `wrappedValue:` autoclosure runs only when this view's
+        // `@StateObject` storage is first installed — *not* on every
+        // re-init that SwiftUI performs while resolving the view tree.
+        // Building the proxy inline (vs. computing it as a `let` first)
+        // is therefore load-bearing: without it, takeWarmProxy()/
+        // WebViewProxy() would fire on every transient init and the
+        // warm proxy could be consumed by a discarded StateObject.
+        _webProxy = StateObject(wrappedValue: AppDelegate.takeWarmProxy() ?? WebViewProxy())
+    }
 
     /// Text to display — live content from FileWatcher, or the original from the document.
     private var currentText: String {

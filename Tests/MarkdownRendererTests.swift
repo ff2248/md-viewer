@@ -833,3 +833,20 @@ struct FileMenuPrunerSuite {
         #expect(editMenu.delegate === other, "Non-File menus should not be protected by the swizzle")
     }
 }
+
+// MARK: - WebViewProxy template inlining
+
+/// Guards the perf optimization where `inlinedTemplate` substitutes the
+/// `cssInlineSentinel` marker with `<style>` blocks. If the marker were
+/// removed from `template.html` (e.g. by a refactor), the substitution
+/// would silently no-op, WebKit would re-introduce per-stylesheet file
+/// fetches, and the cold-start regression would be invisible.
+@MainActor
+struct InlinedTemplateSuite {
+    @Test func substitutesSentinelWithInlineStyles() throws {
+        let html = try #require(WebViewProxy.inlinedTemplate(bundle: testBundle))
+        #expect(html.contains("<style>"), "expected inlined <style> blocks")
+        #expect(!html.contains(WebViewProxy.cssInlineSentinel), "sentinel must be consumed")
+        #expect(!html.contains("<link rel=\"stylesheet\""), "no <link> tags should remain")
+    }
+}

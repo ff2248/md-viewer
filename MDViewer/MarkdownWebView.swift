@@ -27,13 +27,42 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
     private let bundle: Bundle
 
     private static var cachedMermaidJS: String?
-    private static let processPool = WKProcessPool()
+    static let sharedProcessPool = WKProcessPool()
+
+    /// Marker in `template.html` replaced with inline `<style>` blocks
+    /// for each entry in `cssFiles`. Keeping the substitution point as a
+    /// single sentinel decouples the template's link layout from the CSS
+    /// list — adding or reordering stylesheets is a one-line change here.
+    static let cssInlineSentinel = "<!-- @inline-css -->"
+    private static let cssFiles = ["github-markdown", "github.min", "github-dark.min", "temml.min", "custom"]
+
+    /// Cached template HTML with the `cssInlineSentinel` replaced by inline
+    /// `<style>` blocks. Built once per process. Returns `nil` only when
+    /// the template resource itself cannot be read.
+    private static var cachedInlinedTemplate: String?
+
+    static func inlinedTemplate(bundle: Bundle) -> String? {
+        if let cached = cachedInlinedTemplate { return cached }
+        guard let templateURL = bundle.url(forResource: "template", withExtension: "html"),
+              let templateHTML = try? String(contentsOf: templateURL, encoding: .utf8)
+        else { return nil }
+        var inlinedCSS = ""
+        inlinedCSS.reserveCapacity(48000)
+        for name in cssFiles {
+            guard let url = bundle.url(forResource: name, withExtension: "css"),
+                  let css = try? String(contentsOf: url, encoding: .utf8) else { continue }
+            inlinedCSS += "<style>\n\(css)\n</style>\n"
+        }
+        let html = templateHTML.replacingOccurrences(of: cssInlineSentinel, with: inlinedCSS)
+        cachedInlinedTemplate = html
+        return html
+    }
 
     init(bundle: Bundle = .main) {
         self.bundle = bundle
 
         let config = WKWebViewConfiguration()
-        config.processPool = Self.processPool
+        config.processPool = Self.sharedProcessPool
         config.websiteDataStore = .nonPersistent()
         let uc = WKUserContentController()
         config.userContentController = uc
@@ -56,17 +85,20 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
         ))
         webView.navigationDelegate = self
 
-        // 1. Start loading template + CSS immediately
-        if let templateURL = bundle.url(forResource: "template", withExtension: "html"),
+        // Start template load immediately. Inlining CSS into the HTML
+        // string lets WebKit complete the navigation in one in-memory
+        // pass instead of fetching five stylesheets via file:// URLs.
+        if let html = Self.inlinedTemplate(bundle: bundle),
            let resourcesURL = bundle.resourceURL
         {
-            webView.loadFileURL(templateURL, allowingReadAccessTo: resourcesURL)
+            webView.loadHTMLString(html, baseURL: resourcesURL)
         }
 
-        // 2. Pre-warm JSContexts in background (so they're ready when user opens a file)
+        // Pre-warm the highlight.js JSContext on a background thread so
+        // the first render doesn't pay its cold-load cost on the main
+        // thread.
         Task.detached(priority: .userInitiated) {
             _ = HighlightRenderer.highlight(in: "<pre><code class=\"language-js\">x</code></pre>", bundle: bundle)
-            _ = MathRenderer.renderMath(in: "<p>$x$</p>", bundle: bundle)
         }
     }
 

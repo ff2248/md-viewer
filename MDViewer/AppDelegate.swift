@@ -7,6 +7,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let fileMenuPruner = FileMenuPruner()
     private var windowObserver: Any?
     private var keyMonitor: Any?
+    /// Pre-warmed `WebViewProxy` — its WKWebView starts loading the template
+    /// at launch, so by the time the first document's view is constructed
+    /// the WebView is already at or near `didFinish`. The first
+    /// `ContentView` hands itself this proxy via `takeWarmProxy()`;
+    /// subsequent windows construct fresh proxies.
+    private static var warmProxy: WebViewProxy?
+
+    /// Time the warm proxy is held if no document arrives. Sized to span
+    /// a slow cold launch on older Macs without holding a Web Content
+    /// Process indefinitely for a session that opened no document.
+    private static let warmProxyHoldDuration: TimeInterval = 8
 
     /// Install custom NSDocumentController BEFORE AppKit creates its own.
     /// First instance wins — must be in willFinish, not didFinish.
@@ -14,6 +25,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         UserDefaults.registerMDViewerDefaults()
         _ = ReadOnlyDocumentController()
         NSMenu.installFileMenuDelegateProtection()
+        Self.warmProxy = WebViewProxy()
+        // Release the warm proxy if no document arrives in time, so its
+        // WKWebView (and the Web Content Process behind it) can deallocate.
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.warmProxyHoldDuration) {
+            Self.warmProxy = nil
+        }
+    }
+
+    /// Consume the warm proxy on first call; nil on subsequent calls.
+    static func takeWarmProxy() -> WebViewProxy? {
+        let p = warmProxy
+        warmProxy = nil
+        return p
     }
 
     /// Quit the app when the last window is closed. Standard macOS document-based
