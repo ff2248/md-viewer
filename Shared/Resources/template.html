@@ -93,10 +93,12 @@
 
             var minStart = Infinity;
             var maxEnd = -Infinity;
+            var intersected = [];
             var blocks = document.querySelectorAll('[data-sourcepos]');
             for (var i = 0; i < blocks.length; i++) {
                 var el = blocks[i];
                 if (!range.intersectsNode(el)) continue;
+                intersected.push(el);
                 var attr = el.getAttribute('data-sourcepos');
                 var dash = attr.indexOf('-');
                 if (dash < 0) continue;
@@ -107,7 +109,131 @@
                 if (e > maxEnd) maxEnd = e;
             }
             if (minStart === Infinity) return null;
+
+            // If the selection sits entirely within one table, narrow the
+            // payload to that table plus per-cell indices so Swift can emit
+            // a sliced sub-table instead of the whole block.
+            var cell = extractTableCellSelection(intersected, range);
+            if (cell) return cell;
+
+            // Same idea for lists: confine to the touched <li>s instead of
+            // dumping every item in the list.
+            var list = extractListItemSelection(intersected, range);
+            if (list) return list;
+
             return { startLine: minStart, endLine: maxEnd };
+        }
+
+        // Returns {startLine, endLine, list: {ranges}} when every block the
+        // selection touches is the outermost intersected list or its
+        // descendants. `ranges` is a sorted array of {startLine, endLine}
+        // for each touched <li>; ranges fully contained in another (i.e. a
+        // nested li when its parent is also selected) are dropped so the
+        // sliced output doesn't duplicate the inner content.
+        function extractListItemSelection(intersected, range) {
+            var lis = intersected.filter(function (el) { return el.tagName === 'LI'; });
+            if (lis.length === 0) return null;
+            var lists = intersected.filter(function (el) {
+                return el.tagName === 'UL' || el.tagName === 'OL';
+            });
+            if (lists.length === 0) return null;
+            var outermost = null;
+            for (var i = 0; i < lists.length; i++) {
+                var ok = true;
+                for (var j = 0; j < lists.length; j++) {
+                    if (i === j) continue;
+                    if (!lists[i].contains(lists[j])) { ok = false; break; }
+                }
+                if (ok) { outermost = lists[i]; break; }
+            }
+            if (!outermost) return null;
+            for (var k = 0; k < intersected.length; k++) {
+                var el = intersected[k];
+                if (el !== outermost && !outermost.contains(el)) return null;
+            }
+
+            var ranges = [];
+            for (var m = 0; m < lis.length; m++) {
+                var attr = lis[m].getAttribute('data-sourcepos');
+                if (!attr) continue;
+                var dash = attr.indexOf('-');
+                var s = parseInt(attr, 10);
+                var e = parseInt(attr.slice(dash + 1), 10);
+                if (isNaN(s) || isNaN(e)) continue;
+                ranges.push({ startLine: s, endLine: e });
+            }
+            if (ranges.length === 0) return null;
+
+            ranges = ranges.filter(function (r, i, arr) {
+                return !arr.some(function (other, j) {
+                    if (j === i) return false;
+                    return other.startLine <= r.startLine
+                        && other.endLine >= r.endLine
+                        && !(other.startLine === r.startLine && other.endLine === r.endLine);
+                });
+            });
+            ranges.sort(function (a, b) { return a.startLine - b.startLine; });
+
+            return {
+                startLine: ranges[0].startLine,
+                endLine: ranges[ranges.length - 1].endLine,
+                list: { ranges: ranges }
+            };
+        }
+
+        // Returns {startLine, endLine, table: {bodyRows, cols, singleCell}}
+        // when every block the selection touches is the table or its
+        // descendants; otherwise null. `bodyRows` and `cols` are 0-based
+        // and match cmark-gfm's render order. `singleCell` is true iff
+        // the selection resolves to exactly one body cell.
+        function extractTableCellSelection(intersected, range) {
+            var tables = intersected.filter(function (el) { return el.tagName === 'TABLE'; });
+            if (tables.length !== 1) return null;
+            var table = tables[0];
+            for (var i = 0; i < intersected.length; i++) {
+                var el = intersected[i];
+                if (el !== table && !table.contains(el)) return null;
+            }
+
+            var headerCells = table.querySelectorAll('thead th');
+            var bodyRows = table.querySelectorAll('tbody tr');
+            var cols = new Set();
+            var selectedRows = [];
+            for (var r = 0; r < bodyRows.length; r++) {
+                var cells = bodyRows[r].querySelectorAll('td');
+                var rowHit = false;
+                for (var c = 0; c < cells.length; c++) {
+                    if (range.intersectsNode(cells[c])) { rowHit = true; cols.add(c); }
+                }
+                if (rowHit) selectedRows.push(r);
+            }
+            for (var c2 = 0; c2 < headerCells.length; c2++) {
+                if (range.intersectsNode(headerCells[c2])) cols.add(c2);
+            }
+            if (cols.size === 0) return null;
+
+            // Header-only click means "I want this entire column" — fan out
+            // to every body row so the slice covers the full column. Tracked
+            // separately so single-cell mode (bare content, no table syntax)
+            // doesn't fire when there happens to be just one body row.
+            var headerOnly = selectedRows.length === 0;
+            if (headerOnly) {
+                if (bodyRows.length === 0) return null;
+                for (var r2 = 0; r2 < bodyRows.length; r2++) selectedRows.push(r2);
+            }
+
+            var sortedCols = Array.from(cols).sort(function (a, b) { return a - b; });
+            var attr = table.getAttribute('data-sourcepos');
+            var dash = attr.indexOf('-');
+            return {
+                startLine: parseInt(attr, 10),
+                endLine: parseInt(attr.slice(dash + 1), 10),
+                table: {
+                    bodyRows: selectedRows,
+                    cols: sortedCols,
+                    singleCell: !headerOnly && selectedRows.length === 1 && sortedCols.length === 1
+                }
+            };
         }
 
         var copySvg = '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25z"/></svg>';

@@ -190,8 +190,11 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
     }
 
     /// Copies the Markdown source of the current selection to the general
-    /// pasteboard as plain text, at block-level granularity. No-op if the
-    /// selection is empty or resolves to no blocks with data-sourcepos.
+    /// pasteboard as plain text. Block-level granularity by default;
+    /// `getSelectedBlockRange` narrows to per-cell indices when the
+    /// selection sits in a single table, or per-`<li>` ranges when it
+    /// sits in a single list, so a partial table or list selection
+    /// emits just the touched cells / items instead of the whole block.
     func copySelectionAsMarkdown() {
         guard !currentMarkdown.isEmpty else { return }
         let snapshot = currentMarkdown
@@ -202,9 +205,30 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
                   let end = dict["endLine"] as? Int else { return }
             let preprocessed = MarkdownParser.preprocess(snapshot, options: snapshotOptions)
             guard let slice = MarkdownParser.extractLines(preprocessed, startLine: start, endLine: end) else { return }
+
+            let output: String
+            if let table = dict["table"] as? [String: Any],
+               let bodyRows = table["bodyRows"] as? [Int],
+               let cols = table["cols"] as? [Int],
+               let singleCell = table["singleCell"] as? Bool,
+               let sub = MarkdownTable.slice(source: slice, bodyRows: bodyRows, cols: cols, singleCell: singleCell)
+            {
+                output = sub
+            } else if let list = dict["list"] as? [String: Any],
+                      let ranges = list["ranges"] as? [[String: Int]]
+            {
+                let pieces = ranges.compactMap { r -> String? in
+                    guard let s = r["startLine"], let e = r["endLine"] else { return nil }
+                    return MarkdownParser.extractLines(preprocessed, startLine: s, endLine: e)
+                }
+                output = pieces.isEmpty ? slice : pieces.joined(separator: "\n")
+            } else {
+                output = slice
+            }
+
             let pb = NSPasteboard.general
             pb.clearContents()
-            pb.setString(slice, forType: .string)
+            pb.setString(output, forType: .string)
         }
     }
 
