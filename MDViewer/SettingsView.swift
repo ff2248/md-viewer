@@ -23,10 +23,12 @@ struct SettingsView: View {
             Toggle("Restore tabs on launch", isOn: $restoreTabsEnabled)
 
             LabeledContent("External Editor") {
-                HStack {
-                    Text(editorDisplayName)
-                    Spacer()
-                    Button("Choose...") { pickEditor() }
+                Menu(editorDisplayName) {
+                    ForEach(GlobalSettings.installedRecommendedEditors(), id: \.path) { editor in
+                        Button(editor.displayName) { externalEditor = editor.path }
+                    }
+                    Divider()
+                    Button("Choose another…") { pickEditor() }
                 }
             }
 

@@ -69,8 +69,42 @@ class GlobalSettings {
     // MARK: - External Editor
 
     static func openInExternalEditor(url: URL) {
-        let editorPath = UserDefaults.standard.string(forKey: SettingsKey.externalEditor) ?? RenderOptions.defaultExternalEditor
+        var editorPath = UserDefaults.standard.string(forKey: SettingsKey.externalEditor) ?? RenderOptions.defaultExternalEditor
+        // Belt-and-suspenders: launch validation in AppDelegate handles
+        // cross-session uninstalls; this catches the rare in-session case
+        // where the user removes the editor between launching MDViewer
+        // and pressing ⇧⌘E.
+        if !FileManager.default.fileExists(atPath: editorPath) {
+            editorPath = detectDefaultExternalEditor()
+            UserDefaults.standard.set(editorPath, forKey: SettingsKey.externalEditor)
+        }
         let editorURL = URL(filePath: editorPath)
         NSWorkspace.shared.open([url], withApplicationAt: editorURL, configuration: NSWorkspace.OpenConfiguration())
+    }
+
+    /// Editor entry shown in the Settings picker — the bundle ID is
+    /// recovered from `RenderOptions.recommendedExternalEditors` and the
+    /// path resolved via Launch Services at query time.
+    struct RecommendedEditor: Hashable {
+        let path: String
+        let displayName: String
+    }
+
+    /// Recommended editors that are actually installed on this machine,
+    /// in the order declared by `RenderOptions.recommendedExternalEditors`.
+    /// The Settings picker reads this; first-launch default uses the
+    /// first entry.
+    static func installedRecommendedEditors() -> [RecommendedEditor] {
+        RenderOptions.recommendedExternalEditors.compactMap { entry in
+            guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: entry.bundleID) else { return nil }
+            return RecommendedEditor(path: url.path, displayName: entry.displayName)
+        }
+    }
+
+    /// Path of the first recommended editor that's installed, or the
+    /// hardcoded TextEdit fallback if somehow none of the curated apps
+    /// are present (TextEdit ships with macOS, so this is rare).
+    static func detectDefaultExternalEditor() -> String {
+        installedRecommendedEditors().first?.path ?? RenderOptions.defaultExternalEditor
     }
 }

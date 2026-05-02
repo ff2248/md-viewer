@@ -38,6 +38,22 @@ struct RenderOptions: Equatable {
     static let defaultExternalEditor = "/System/Applications/TextEdit.app"
     static let markdownExtensions = ["md", "markdown", "mdown", "mkd"]
 
+    /// Curated list of editors offered as suggestions in Settings, in
+    /// preference order. The list is intersected with what's actually
+    /// installed at runtime. TextEdit is last so the final fallback is
+    /// always something macOS ships with.
+    static let recommendedExternalEditors: [(bundleID: String, displayName: String)] = [
+        ("com.todesktop.230313mzl4w4u92", "Cursor"),
+        ("com.microsoft.VSCode", "Visual Studio Code"),
+        ("md.obsidian", "Obsidian"),
+        ("abnerworks.Typora", "Typora"),
+        ("com.sublimetext.4", "Sublime Text"),
+        ("com.coteditor.CotEditor", "CotEditor"),
+        ("pro.writer.mac", "iA Writer"),
+        ("com.barebones.bbedit", "BBEdit"),
+        ("com.apple.TextEdit", "TextEdit"),
+    ]
+
     /// Load from UserDefaults, falling back to defaults for unset keys.
     static func fromDefaults(_ d: UserDefaults = .standard) -> RenderOptions {
         RenderOptions(

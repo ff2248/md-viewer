@@ -23,6 +23,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// First instance wins — must be in willFinish, not didFinish.
     func applicationWillFinishLaunching(_: Notification) {
         UserDefaults.registerMDViewerDefaults()
+        // External editor default is detected at launch (Launch Services
+        // query) rather than hardcoded, so a fresh install picks up the
+        // user's existing Cursor / VS Code / Obsidian / etc. without any
+        // setup. Registering as a UserDefaults fallback preserves any
+        // explicit user choice.
+        UserDefaults.standard.register(defaults: [
+            SettingsKey.externalEditor: GlobalSettings.detectDefaultExternalEditor(),
+        ])
+        // Self-heal: if the chosen editor was uninstalled or moved away,
+        // overwrite the stored path with a fresh auto-detection so
+        // ⇧⌘E doesn't silently fail and Settings doesn't display a
+        // ghost editor that no longer exists.
+        if let stored = UserDefaults.standard.string(forKey: SettingsKey.externalEditor),
+           !FileManager.default.fileExists(atPath: stored)
+        {
+            UserDefaults.standard.set(GlobalSettings.detectDefaultExternalEditor(), forKey: SettingsKey.externalEditor)
+        }
         _ = ReadOnlyDocumentController()
         NSMenu.installFileMenuDelegateProtection()
         Self.warmProxy = WebViewProxy()
