@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct ContentView: View {
@@ -250,7 +251,7 @@ struct ContentView: View {
                 } else {
                     Spacer().frame(width: 16)
                 }
-                Text(heading.text)
+                Text(attributedHeading(heading, selected: heading.id == selectedHeadingID))
                     .font(fontForLevel(heading.level))
                     .lineLimit(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -339,6 +340,36 @@ struct ContentView: View {
         case 1: .body.bold()
         default: .body
         }
+    }
+
+    /// Warm accent for inline `code` in TOC entries. Hand-picked per appearance
+    /// because system `.brown` reads too dim against the light sidebar.
+    private static let sidebarCodeColor = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            ? NSColor(red: 0.85, green: 0.62, blue: 0.42, alpha: 1.0)
+            : NSColor(red: 0.85, green: 0.47, blue: 0.16, alpha: 1.0)
+    })
+
+    /// When the row is selected, the warm color is dropped so the system's
+    /// selection inversion (white-on-accent) paints the whole row uniformly —
+    /// an explicit `foregroundColor` would survive the inversion and tank
+    /// contrast against the accent background.
+    private func attributedHeading(_ heading: Heading, selected: Bool) -> AttributedString {
+        if heading.segments.count == 1, !heading.segments[0].isCode {
+            return AttributedString(heading.segments[0].text)
+        }
+        var result = AttributedString()
+        for seg in heading.segments {
+            var part = AttributedString(seg.text)
+            if seg.isCode {
+                part.font = .body.monospaced()
+                if !selected {
+                    part.foregroundColor = Self.sidebarCodeColor
+                }
+            }
+            result.append(part)
+        }
+        return result
     }
 }
 

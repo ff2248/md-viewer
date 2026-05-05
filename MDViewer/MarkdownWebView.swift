@@ -5,7 +5,12 @@ import WebKit
 struct Heading: Identifiable, Equatable {
     let id: String
     let level: Int
+    let segments: [HeadingSegment]
+}
+
+struct HeadingSegment: Equatable {
     let text: String
+    let isCode: Bool
 }
 
 /// Manages a pre-loaded WKWebView and pre-warmed JSContexts for instant rendering.
@@ -302,8 +307,12 @@ class WebViewProxy: NSObject, ObservableObject, WKNavigationDelegate, WKScriptMe
         let headings = list.compactMap { item -> Heading? in
             guard let id = item["id"] as? String,
                   let level = item["level"] as? Int,
-                  let text = item["text"] as? String else { return nil }
-            return Heading(id: id, level: level, text: text)
+                  let raw = item["segments"] as? [[String: Any]] else { return nil }
+            let segments = raw.compactMap { seg -> HeadingSegment? in
+                guard let t = seg["text"] as? String else { return nil }
+                return HeadingSegment(text: t, isCode: (seg["code"] as? Bool) ?? false)
+            }
+            return Heading(id: id, level: level, segments: segments)
         }
         onHeadingsLoaded?(headings)
     }

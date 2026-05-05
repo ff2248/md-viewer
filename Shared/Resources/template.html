@@ -63,11 +63,43 @@
                 slugCounts[slug] = (slugCounts[slug] || 0) + 1;
                 var id = slugCounts[slug] > 1 ? slug + '-' + (slugCounts[slug] - 1) : slug;
                 el.id = id;
-                headings.push({ id: id, level: parseInt(el.tagName.charAt(1)), text: el.textContent });
+                headings.push({
+                    id: id,
+                    level: parseInt(el.tagName.charAt(1)),
+                    segments: headingSegments(el)
+                });
             });
             if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.headings) {
                 window.webkit.messageHandlers.headings.postMessage(headings);
             }
+        }
+
+        // Adjacent segments of the same kind are merged so consumers can rely on
+        // a minimal alternation (text, code, text, code, ...).
+        function headingSegments(root) {
+            var out = [];
+            function push(text, code) {
+                if (!text) return;
+                var last = out[out.length - 1];
+                if (last && last.code === code) {
+                    last.text += text;
+                } else {
+                    out.push({ text: text, code: code });
+                }
+            }
+            function walk(node, inCode) {
+                if (node.nodeType === 3) {
+                    push(node.nodeValue, inCode);
+                    return;
+                }
+                if (node.nodeType !== 1) return;
+                var isCode = inCode || node.tagName === 'CODE';
+                for (var i = 0; i < node.childNodes.length; i++) {
+                    walk(node.childNodes[i], isCode);
+                }
+            }
+            walk(root, false);
+            return out;
         }
 
         function scrollToHeading(id) {
