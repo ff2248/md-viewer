@@ -9,6 +9,9 @@ struct ContentView: View {
     /// "could not be autosaved" dialogs when the on-disk file has also changed.
     @State private var liveText: String?
     @State private var headings: [Heading] = []
+    /// True once the heading-extraction callback has fired for the current
+    /// document; lets the sidebar distinguish "still parsing" from "no headings".
+    @State private var headingsLoaded: Bool = false
     @State private var selectedHeadingID: String?
     @State private var collapsedIDs: Set<String> = []
     @State private var columnVisibility: NavigationSplitViewVisibility = .doubleColumn
@@ -45,6 +48,8 @@ struct ContentView: View {
             Group {
                 if currentText.isEmpty {
                     ContentUnavailableView("No Document", systemImage: "doc.text", description: Text("Open a .md file"))
+                } else if headingsLoaded, headings.isEmpty {
+                    noHeadingsView
                 } else {
                     tocList
                 }
@@ -76,7 +81,10 @@ struct ContentView: View {
             return true
         }
         .onAppear {
-            webProxy.onHeadingsLoaded = { headings = $0 }
+            webProxy.onHeadingsLoaded = { list in
+                headings = list
+                headingsLoaded = true
+            }
             webProxy.onOpenRelativeFile = { url in
                 // For relative links, open in a new window via NSWorkspace
                 NSWorkspace.shared.open(url)
@@ -201,6 +209,7 @@ struct ContentView: View {
 
     private func resetTableOfContents() {
         headings = []
+        headingsLoaded = false
         selectedHeadingID = nil
         collapsedIDs = []
     }
@@ -234,6 +243,19 @@ struct ContentView: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var noHeadingsView: some View {
+        VStack(spacing: 6) {
+            Image(systemName: "list.bullet.indent")
+                .font(.title3)
+                .foregroundStyle(.tertiary)
+            Text("No Headings")
+                .font(.callout.weight(.medium))
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding()
     }
 
     // MARK: - TOC Sidebar

@@ -75,6 +75,12 @@ struct MDViewerApp: App {
                 .keyboardShortcut("c", modifiers: [.command, .shift])
                 .disabled(webProxy == nil)
             }
+            CommandGroup(after: .newItem) {
+                Button("Reopen Closed Tab") {
+                    appDelegate.reopenLastClosedTab()
+                }
+                .keyboardShortcut("t", modifiers: [.command, .shift])
+            }
             CommandGroup(after: .importExport) {
                 Button("Open in External Editor") {
                     if let url = documentURL {

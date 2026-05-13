@@ -10,6 +10,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let fileMenuPruner = FileMenuPruner()
     private var windowObserver: Any?
     private var keyMonitor: Any?
+
+    /// LIFO stack of file URLs the user closed during this session; ⇧⌘T pops the top.
+    private var closedDocumentURLs: [URL] = []
+    private static let maxClosedDocumentHistory = 20
     /// Pre-warmed `WebViewProxy` — its WKWebView starts loading the template
     /// at launch, so by the time the first document's view is constructed
     /// the WebView is already at or near `didFinish`. The first
@@ -76,6 +80,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             MainActor.assumeIsolated {
                 Self.tagDocumentWindows()
                 self?.attachFileMenuDelegate()
+            }
+        }
+
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification, object: nil, queue: .main
+        ) { [weak self] notif in
+            // Box the non-Sendable NSWindow across the actor hop; delivery
+            // on `.main` guarantees we're already on the main thread.
+            let box = UncheckedSendableBox(notif.object as? NSWindow)
+            MainActor.assumeIsolated {
+                guard let self,
+                      let window = box.value,
+                      Self.isDocumentWindow(window),
+                      let url = window.representedURL ?? Self.documentURL(for: window)
+                else { return }
+                self.recordClosedDocument(url)
             }
         }
 
@@ -158,6 +178,38 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return .terminateNow
     }
 
+    // MARK: - Reopen Closed Tab
+
+    private func recordClosedDocument(_ url: URL) {
+        // Dedupe: a re-closed file moves to the top instead of appearing twice.
+        closedDocumentURLs.removeAll { $0 == url }
+        closedDocumentURLs.append(url)
+        if closedDocumentURLs.count > Self.maxClosedDocumentHistory {
+            closedDocumentURLs.removeFirst(closedDocumentURLs.count - Self.maxClosedDocumentHistory)
+        }
+    }
+
+    /// Pop the most recent close and reopen it. Goes through the Apple Event
+    /// path so macOS merges the new window into the existing tab group.
+    func reopenLastClosedTab() {
+        while let url = closedDocumentURLs.popLast() {
+            var isDir: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir),
+                  !isDir.boolValue else { continue }
+            NSWorkspace.shared.open(
+                [url],
+                withApplicationAt: Bundle.main.bundleURL,
+                configuration: NSWorkspace.OpenConfiguration()
+            ) { _, error in
+                if let error {
+                    Self.logger.warning("Reopen closed tab failed for \(url.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                }
+            }
+            return
+        }
+        NSSound.beep()
+    }
+
     private func attachFileMenuDelegate() {
         guard let fileItem = NSApp.mainMenu?.items.first(where: { $0.title == "File" }),
               let submenu = fileItem.submenu else { return }
@@ -165,6 +217,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             fileMenuPruner.previousDelegate = submenu.delegate
             submenu.delegate = fileMenuPruner
         }
+    }
+
+    /// True for document windows we want to track for ⇧⌘T: titled,
+    /// non-panel, and not the History window.
+    private static func isDocumentWindow(_ window: NSWindow) -> Bool {
+        window.styleMask.contains(.titled)
+            && !(window is NSPanel)
+            && window.identifier?.rawValue != WindowID.history
+    }
+
+    /// Defensive lookup when `window.representedURL` is nil — finds the
+    /// matching NSDocument by walking its window controllers.
+    private static func documentURL(for window: NSWindow) -> URL? {
+        for doc in NSDocumentController.shared.documents {
+            if doc.windowControllers.contains(where: { $0.window === window }) {
+                return doc.fileURL
+            }
+        }
+        return nil
     }
 
     /// Ensure all document windows share a tabbingIdentifier so macOS
@@ -180,6 +251,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             window.tabbingMode = .preferred
             window.tabbingIdentifier = tabbingID
         }
+    }
+}
+
+/// Ferry a non-Sendable value across a `MainActor.assumeIsolated` hop.
+/// Sound only when the caller has already proven main-thread delivery.
+private struct UncheckedSendableBox<Value>: @unchecked Sendable {
+    let value: Value
+    init(_ value: Value) {
+        self.value = value
     }
 }
 
