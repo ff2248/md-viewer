@@ -116,4 +116,60 @@ struct HistoryStoreSuite {
         let second = HistoryStore(defaults: defaults)
         #expect(second.entries.isEmpty)
     }
+
+    @Test func titleStoredAndRetrieved() {
+        let store = Self.makeStore()
+        store.recordOpen(URL(filePath: "/tmp/notes.md"), title: "My Notes")
+        #expect(store.title(for: "/tmp/notes.md") == "My Notes")
+        #expect(store.title(for: "/tmp/unknown.md") == nil)
+    }
+
+    @Test func nilTitleDoesNotOverwriteExisting() {
+        let store = Self.makeStore()
+        store.recordOpen(URL(filePath: "/tmp/a.md"), title: "First")
+        store.recordOpen(URL(filePath: "/tmp/a.md"), title: nil)
+        #expect(store.title(for: "/tmp/a.md") == "First")
+    }
+
+    @Test func removeAlsoDropsTitle() {
+        let store = Self.makeStore()
+        store.recordOpen(URL(filePath: "/tmp/a.md"), title: "Title")
+        store.remove("/tmp/a.md")
+        #expect(store.title(for: "/tmp/a.md") == nil)
+    }
+
+    @Test func clearAlsoDropsTitles() {
+        let store = Self.makeStore()
+        store.recordOpen(URL(filePath: "/tmp/a.md"), title: "A")
+        store.recordOpen(URL(filePath: "/tmp/b.md"), title: "B")
+        store.clear()
+        #expect(store.title(for: "/tmp/a.md") == nil)
+        #expect(store.title(for: "/tmp/b.md") == nil)
+    }
+
+    @Test func filteredMatchesTitle() {
+        let store = Self.makeStore()
+        store.recordOpen(URL(filePath: "/tmp/a.md"), title: "Migration Plan")
+        store.recordOpen(URL(filePath: "/tmp/b.md"), title: "Release Notes")
+        #expect(store.filtered(query: "migration") == ["/tmp/a.md"])
+    }
+
+    @Test func trimsTitlesWhenTrimmingEntries() {
+        let store = Self.makeStore()
+        for i in 0 ..< (HistoryStore.maxEntries + 5) {
+            store.recordOpen(URL(filePath: "/tmp/file\(i).md"), title: "Title \(i)")
+        }
+        #expect(store.title(for: "/tmp/file0.md") == nil)
+        #expect(store.title(for: "/tmp/file\(HistoryStore.maxEntries + 4).md") == "Title \(HistoryStore.maxEntries + 4)")
+    }
+
+    @Test func titlesPersistAcrossInstances() throws {
+        let suite = "test-\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        let first = HistoryStore(defaults: defaults)
+        first.recordOpen(URL(filePath: "/tmp/a.md"), title: "Hello")
+
+        let second = HistoryStore(defaults: defaults)
+        #expect(second.title(for: "/tmp/a.md") == "Hello")
+    }
 }

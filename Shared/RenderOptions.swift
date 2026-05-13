@@ -16,6 +16,7 @@ enum SettingsKey {
     static let restoreTabs = "restoreTabs"
     static let restoreTabsEnabled = "restoreTabsEnabled"
     static let history = "history"
+    static let historyTitles = "historyTitles"
 }
 
 /// Shared rendering options used across the app and Quick Look extension.

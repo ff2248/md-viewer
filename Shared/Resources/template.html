@@ -104,7 +104,9 @@
 
         function scrollToHeading(id) {
             var el = document.getElementById(id);
-            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // Sidebar jumps are navigation, not in-page reading flow — go
+            // instant so the click feels immediate.
+            if (el) el.scrollIntoView({ behavior: 'instant', block: 'start' });
         }
 
         // Returns {startLine, endLine} (1-based, inclusive) covering every block

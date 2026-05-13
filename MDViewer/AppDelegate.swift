@@ -189,19 +189,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Pop the most recent close and reopen it. Goes through the Apple Event
-    /// path so macOS merges the new window into the existing tab group.
+    /// Pop the most recent close and reopen it in-process, then merge the
+    /// new window into the existing tab group. The in-process path avoids
+    /// the LaunchServices roundtrip `NSWorkspace.open` would force.
     func reopenLastClosedTab() {
         while let url = closedDocumentURLs.popLast() {
             var isDir: ObjCBool = false
             guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir),
                   !isDir.boolValue else { continue }
-            NSWorkspace.shared.open(
-                [url],
-                withApplicationAt: Bundle.main.bundleURL,
-                configuration: NSWorkspace.OpenConfiguration()
-            ) { _, error in
-                if let error {
+            let mergeTarget = NSApp.keyWindow.flatMap { Self.isDocumentWindow($0) ? $0 : nil }
+            Task { @MainActor in
+                do {
+                    let (doc, alreadyOpen) = try await NSDocumentController.shared
+                        .openDocument(withContentsOf: url, display: true)
+                    guard !alreadyOpen,
+                          let new = doc.windowControllers.first?.window,
+                          let target = mergeTarget,
+                          target !== new
+                    else { return }
+                    target.addTabbedWindow(new, ordered: .above)
+                    new.makeKeyAndOrderFront(nil)
+                } catch {
                     Self.logger.warning("Reopen closed tab failed for \(url.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
                 }
             }

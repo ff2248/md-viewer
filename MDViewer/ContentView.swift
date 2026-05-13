@@ -220,7 +220,7 @@ struct ContentView: View {
               let url = doc.fileURL else { return }
         fileURL = url
         webProxy.fileURL = url
-        historyStore.recordOpen(url)
+        historyStore.recordOpen(url, title: MarkdownTitle.extract(from: currentText))
         // Watch for external edits and auto-reload.
         // Update liveText (a local @State) instead of document.text so we never
         // dirty the FileDocument binding — prevents NSDocument autosave conflicts.

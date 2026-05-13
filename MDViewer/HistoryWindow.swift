@@ -67,7 +67,7 @@ struct HistoryView: View {
                     Button {
                         open(path)
                     } label: {
-                        HistoryRow(path: path)
+                        HistoryRow(path: path, title: store.title(for: path))
                     }
                     .buttonStyle(.plain)
                     .contextMenu {
@@ -126,16 +126,34 @@ struct HistoryView: View {
 
 struct HistoryRow: View {
     let path: String
+    let title: String?
 
     private var filename: String {
         URL(filePath: path).lastPathComponent
     }
 
+    /// Show the H1 title alongside the filename only when it's distinct and
+    /// non-empty; otherwise the row would just repeat the same text.
+    private var visibleTitle: String? {
+        guard let t = title?.trimmingCharacters(in: .whitespaces), !t.isEmpty, t != filename
+        else { return nil }
+        return t
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(filename)
-                .font(.body)
-                .fontWeight(.medium)
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(filename)
+                    .font(.body)
+                    .fontWeight(.medium)
+                if let visibleTitle {
+                    Text(visibleTitle)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+            }
             Text(path)
                 .font(.caption)
                 .foregroundStyle(.secondary)
